@@ -15,6 +15,10 @@ An ESP32-C3 Super Mini firmware that displays a battery/power percentage on any 
 | Default LED count | 38 pixels |
 | Default data pin | GPIO 4 |
 
+**Where to buy the ESP32-C3 Super Mini:**
+- [AliExpress](https://aliexpress.com/item/1005007783677682.html)
+- Search for **"ESP32-C3 Super Mini"** on Amazon
+
 The firmware works with any WS2812B-based LED strip or lamp. Tested with:
 
 | Product | Notes |
