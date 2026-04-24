@@ -135,10 +135,11 @@ bool vrmFetchBatteryInstance() {
     String body = http.getString();
     http.end();
 
-    DynamicJsonDocument respDoc(4096);
+    DynamicJsonDocument respDoc(8192);
     DeserializationError err = deserializeJson(respDoc, body);
     if (err) {
         Serial.printf("[VRM] system-overview JSON parse error: %s\n", err.c_str());
+        Serial.printf("[VRM] Body (first 200): %.200s\n", body.c_str());
         return false;
     }
 
@@ -168,14 +169,20 @@ void vrmPoll() {
     if (Config::vrm_api_token[0] == '\0') return;
 
     uint32_t now = millis();
-    if (lastVrmPoll != 0 && now - lastVrmPoll < (uint32_t)Config::vrm_interval * 1000) return;
-    lastVrmPoll = now;
 
+    // Init phase: resolve site + battery instance (rate-limited on failure, immediate poll on success)
     if (!vrmReady) {
+        if (lastVrmPoll != 0 && now - lastVrmPoll < (uint32_t)Config::vrm_interval * 1000) return;
+        lastVrmPoll = now;
         if (!vrmFetchSite())            return;
         if (!vrmFetchBatteryInstance()) return;
-        vrmReady = true;
+        vrmReady   = true;
+        lastVrmPoll = 0; // reset so BatterySummary poll runs immediately below
     }
+
+    // Poll phase: rate-limited at configured interval
+    if (lastVrmPoll != 0 && now - lastVrmPoll < (uint32_t)Config::vrm_interval * 1000) return;
+    lastVrmPoll = now;
 
     WiFiClientSecure wifiClient;
     wifiClient.setInsecure();

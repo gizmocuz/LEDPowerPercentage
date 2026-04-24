@@ -40,6 +40,7 @@ void setupWifi() {
     webServer.on("/api/state",      HTTP_GET,  handleApiStateGet);
     webServer.on("/api/state",      HTTP_POST, handleApiStatePost);
     webServer.on("/api/brightness", HTTP_GET,  handleApiBrightness);
+    webServer.on("/api/color",      HTTP_POST, handleApiColor);
     webServer.onNotFound(handleWebNotFound);
     webServer.begin();
 

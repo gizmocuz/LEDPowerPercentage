@@ -174,16 +174,6 @@ void handleWebConfig() {
 
     html += R"rawhtml(<tr><td colspan="2"><hr style="margin:8px 0"></td></tr>)rawhtml";
 
-    // threshold_1
-    html += R"rawhtml(<tr><td>Low threshold (%):</td><td><input type="number" name="threshold_1" value=")rawhtml"
-        + String(Config::threshold_1) +
-        R"rawhtml(" min="0" max="99"></td></tr>)rawhtml";
-
-    // threshold_2
-    html += R"rawhtml(<tr><td>High threshold (%):</td><td><input type="number" name="threshold_2" value=")rawhtml"
-        + String(Config::threshold_2) +
-        R"rawhtml(" min="1" max="100"></td></tr>)rawhtml";
-
     // num_pixels
     html += R"rawhtml(<tr><td>LED pixel count:</td><td><input type="number" name="num_pixels" value=")rawhtml";
     html += String(Config::num_pixels);
@@ -197,6 +187,35 @@ void handleWebConfig() {
         if (Config::led_pin == pin) html += R"rawhtml( selected)rawhtml";
         html += R"rawhtml(>GPIO )rawhtml" + String(pin) + R"rawhtml(</option>)rawhtml";
     }
+    html += R"rawhtml(</select></td></tr>)rawhtml";
+
+    // pixel color order
+    {
+        struct { const char* label; uint8_t val; } orders[] = {
+            {"NEO_GRB (most strips)", 82},
+            {"NEO_RGB", 6},
+            {"NEO_RBG (default)", 9},
+            {"NEO_BRG", 88},
+            {"NEO_BGR", 54},
+            {"NEO_GBR", 98},
+        };
+        html += R"rawhtml(<tr><td>Pixel color order:</td><td><select name="pixel_color_order">)rawhtml";
+        for (auto& o : orders) {
+            html += R"rawhtml(<option value=")rawhtml" + String(o.val) + R"rawhtml(")rawhtml";
+            if (Config::pixel_color_order == o.val) html += R"rawhtml( selected)rawhtml";
+            html += String(">") + o.label + R"rawhtml(</option>)rawhtml";
+        }
+        html += R"rawhtml(</select></td></tr>)rawhtml";
+    }
+
+    // pixel kHz
+    html += R"rawhtml(<tr><td>LED signal speed:</td><td><select name="pixel_khz">)rawhtml";
+    html += R"rawhtml(<option value="800")rawhtml";
+    if (Config::pixel_khz == 800) html += R"rawhtml( selected)rawhtml";
+    html += R"rawhtml(>800 KHz (WS2812B)</option>)rawhtml";
+    html += R"rawhtml(<option value="400")rawhtml";
+    if (Config::pixel_khz == 400) html += R"rawhtml( selected)rawhtml";
+    html += R"rawhtml(>400 KHz (WS2811)</option>)rawhtml";
     html += R"rawhtml(</select></td></tr>)rawhtml";
 
     // fade_pixels
@@ -220,6 +239,16 @@ void handleWebConfig() {
     html += R"rawhtml(<tr><td>Animation interval (s):</td><td><input type="number" name="charge_anim_interval" value=")rawhtml"
         + String(Config::charge_anim_interval) +
         R"rawhtml(" min="2" max="60"></td></tr>)rawhtml";
+
+    // threshold_1
+    html += R"rawhtml(<tr><td>Low threshold (%):</td><td><input type="number" name="threshold_1" value=")rawhtml"
+        + String(Config::threshold_1) +
+        R"rawhtml(" min="0" max="99"></td></tr>)rawhtml";
+
+    // threshold_2
+    html += R"rawhtml(<tr><td>High threshold (%):</td><td><input type="number" name="threshold_2" value=")rawhtml"
+        + String(Config::threshold_2) +
+        R"rawhtml(" min="1" max="100"></td></tr>)rawhtml";
 
     // base_brightness range
     html += R"rawhtml(<tr><td>Base brightness ()rawhtml"
@@ -285,17 +314,21 @@ void handleWebConfigSave() {
         String t = webServer.arg("vrm_api_token"); t.trim();
         strlcpy(Config::vrm_api_token, t.c_str(), sizeof(Config::vrm_api_token));
     }
+    if (Config::vrm_enabled && Config::vrm_api_token[0] == '\0') {
+        Config::vrm_enabled = false;
+        Serial.println("VRM: disabled — API token is required");
+    }
     if (webServer.hasArg("vrm_site_id"))
         Config::vrm_site_id = max(0, (int)webServer.arg("vrm_site_id").toInt());
     if (webServer.hasArg("vrm_battery_instance"))
         Config::vrm_battery_instance = max(-1, (int)webServer.arg("vrm_battery_instance").toInt());
     if (webServer.hasArg("vrm_charge_threshold")) {
-        String v = webServer.arg("vrm_charge_threshold"); v.replace(',', '.');
-        Config::vrm_charge_threshold = v.toFloat();
+        String v = webServer.arg("vrm_charge_threshold"); v.trim(); v.replace(',', '.');
+        if (v.length() > 0 && v.length() <= 8) Config::vrm_charge_threshold = v.toFloat();
     }
     if (webServer.hasArg("vrm_discharge_threshold")) {
-        String v = webServer.arg("vrm_discharge_threshold"); v.replace(',', '.');
-        Config::vrm_discharge_threshold = v.toFloat();
+        String v = webServer.arg("vrm_discharge_threshold"); v.trim(); v.replace(',', '.');
+        if (v.length() > 0 && v.length() <= 8) Config::vrm_discharge_threshold = v.toFloat();
     }
     if (webServer.hasArg("vrm_interval"))
         Config::vrm_interval = constrain(webServer.arg("vrm_interval").toInt(), 10, 3600);
@@ -315,7 +348,17 @@ void handleWebConfigSave() {
     }
     if (webServer.hasArg("led_pin")) {
         int p = webServer.arg("led_pin").toInt();
-        if (p >= 0 && p <= 21) Config::led_pin = p;
+        int validLedPins[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 20, 21};
+        for (int vp : validLedPins) { if (p == vp) { Config::led_pin = p; break; } }
+    }
+    if (webServer.hasArg("pixel_color_order")) {
+        uint8_t co = (uint8_t)webServer.arg("pixel_color_order").toInt();
+        uint8_t validOrders[] = {6, 9, 82, 88, 54, 98};
+        for (uint8_t v : validOrders) { if (co == v) { Config::pixel_color_order = co; break; } }
+    }
+    if (webServer.hasArg("pixel_khz")) {
+        int k = webServer.arg("pixel_khz").toInt();
+        if (k == 400 || k == 800) Config::pixel_khz = k;
     }
 
     if (webServer.hasArg("mqtt_discovery_prefix")) {
@@ -328,6 +371,8 @@ void handleWebConfigSave() {
 
     Config::save();
     ws2812b.updateLength(Config::num_pixels);
+    ws2812b.updateType((neoPixelType)(Config::pixel_color_order |
+                       (Config::pixel_khz == 400 ? NEO_KHZ400 : NEO_KHZ800)));
     if ((uint8_t)Config::led_pin != ws2812b.getPin()) {
         ws2812b.setPin(Config::led_pin);
         ws2812b.begin(); // re-init RMT only when pin actually changes
@@ -441,6 +486,34 @@ void handleApiBrightness() {
         updateLEDs();
     }
     webServer.send(200, "text/plain", "");
+}
+
+// ---------------------------------------------------------------------------
+// handleApiColor — POST /api/color {"r":255,"g":0,"b":0} — fill strip with solid color
+// ---------------------------------------------------------------------------
+
+void handleApiColor() {
+    if (!webServer.hasArg("plain") || webServer.arg("plain").length() == 0) {
+        webServer.send(400, "application/json", "{\"error\":\"empty body\"}");
+        return;
+    }
+
+    DynamicJsonDocument doc(128);
+    if (deserializeJson(doc, webServer.arg("plain")) != DeserializationError::Ok) {
+        webServer.send(400, "application/json", "{\"error\":\"invalid JSON\"}");
+        return;
+    }
+
+    uint8_t r = (uint8_t)constrain((int)doc["r"], 0, 255);
+    uint8_t g = (uint8_t)constrain((int)doc["g"], 0, 255);
+    uint8_t b = (uint8_t)constrain((int)doc["b"], 0, 255);
+
+    ws2812b.fill(ws2812b.Color(r, g, b));
+    ws2812b.show();
+
+    char payload[64];
+    snprintf(payload, sizeof(payload), "{\"r\":%d,\"g\":%d,\"b\":%d}", r, g, b);
+    webServer.send(200, "application/json", payload);
 }
 
 // ---------------------------------------------------------------------------

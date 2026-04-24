@@ -11,7 +11,7 @@ An ESP32-C3 Super Mini firmware that displays a battery/power percentage on any 
 | Component | Value |
 |-----------|-------|
 | MCU | ESP32-C3 Super Mini |
-| LED strip | WS2812B (NEO_RBG colour order) |
+| LED strip | WS2812B / WS2811 (colour order and signal speed configurable) |
 | Default LED count | 38 pixels |
 | Default data pin | GPIO 4 |
 
@@ -19,11 +19,12 @@ An ESP32-C3 Super Mini firmware that displays a battery/power percentage on any 
 - [AliExpress](https://aliexpress.com/item/1005007783677682.html)
 - Search for **"ESP32-C3 Super Mini"** on Amazon
 
-The firmware works with any WS2812B-based LED strip or lamp. Tested with:
+The firmware works with any WS2812B or WS2811-based LED strip or lamp. The pixel colour order (NEO_GRB, NEO_RGB, NEO_RBG, …) and signal speed (800 kHz for WS2812B, 400 kHz for WS2811) are configurable in the web interface without recompilation. Tested with:
 
 | Product | Notes |
 |---------|-------|
 | Generic WS2812B strip | Any density / length |
+| Generic WS2811 strip | Set signal speed to 400 kHz in configuration |
 | Philips RGBIC Ambient Floor Lamp (142 cm) | Tap into the WS2812B data line |
 | Grundig LED Corner Floor Lamp | Replace the built-in controller with the ESP32-C3 |
 
@@ -102,6 +103,8 @@ The page auto-refreshes every 5 seconds.
 | High threshold (%) | Lower edge of the green zone |
 | LED pixel count | Number of pixels on the strip (1–500) |
 | LED data pin (GPIO) | WS2812B data pin — dropdown restricted to valid ESP32-C3 pins |
+| Pixel color order | RGB byte order of the strip (default NEO_RBG; most strips use NEO_GRB) |
+| LED signal speed | 800 KHz (WS2812B) or 400 KHz (WS2811) |
 | Fade pixels | Width of the colour-blend gradient between zones |
 | Middle zone color | Colour picker for the middle zone |
 | Charge/Discharge animation | Enable/disable the white sweep animation |
@@ -191,6 +194,42 @@ curl -X POST http://192.168.1.42/api/state \
 curl -X POST http://192.168.1.42/api/state \
   -H "Content-Type: application/json" \
   -d '{"brightness":0}'
+```
+
+---
+
+### `POST /api/color`
+
+Fills the entire strip with a single RGB colour immediately. Useful for testing the **Pixel color order** setting — send a pure red, green, or blue and confirm the correct pixels light up.
+
+The effect is temporary; the next state change or animation will restore the normal display.
+
+**Request body (JSON):**
+```json
+{"r": 255, "g": 0, "b": 0}
+```
+
+**Response:**
+```json
+{"r": 255, "g": 0, "b": 0}
+```
+
+**Examples:**
+```bash
+# Full red
+curl -X POST http://192.168.1.42/api/color \
+  -H "Content-Type: application/json" \
+  -d '{"r":255,"g":0,"b":0}'
+
+# Full green
+curl -X POST http://192.168.1.42/api/color \
+  -H "Content-Type: application/json" \
+  -d '{"r":0,"g":255,"b":0}'
+
+# Strip off
+curl -X POST http://192.168.1.42/api/color \
+  -H "Content-Type: application/json" \
+  -d '{"r":0,"g":0,"b":0}'
 ```
 
 ---
@@ -311,6 +350,8 @@ All settings are stored in SPIFFS as `/config.json`. If the filesystem cannot be
 | fade_pixels | 3 |
 | num_pixels | 38 |
 | led_pin | 4 |
+| pixel_color_order | 9 (NEO_RBG) |
+| pixel_khz | 800 |
 | middle_r / g / b | 0 / 0 / 255 (blue) |
 | charge_anim | true |
 | charge_anim_interval | 10 |

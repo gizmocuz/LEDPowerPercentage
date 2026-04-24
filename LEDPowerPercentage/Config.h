@@ -26,6 +26,8 @@ namespace Config {
     int  fade_pixels        = 3;
     int  num_pixels         = 38;   // strip length (matches NUM_PIXELS compile-time default)
     int  led_pin            = 4;    // WS2812B data pin (matches PIN_WS2812B compile-time default)
+    uint8_t pixel_color_order = 9;  // NEO_RBG=9, NEO_GRB=82, NEO_RGB=6, NEO_BRG=88, NEO_BGR=54, NEO_GBR=98
+    int  pixel_khz          = 800;  // 800 or 400
     uint8_t middle_r        = 0;
     uint8_t middle_g        = 0;
     uint8_t middle_b        = 255;
@@ -57,6 +59,8 @@ namespace Config {
         json["fade_pixels"]    = fade_pixels;
         json["num_pixels"]     = num_pixels;
         json["led_pin"]        = led_pin;
+        json["pixel_color_order"] = pixel_color_order;
+        json["pixel_khz"]        = pixel_khz;
         json["middle_r"]       = middle_r;
         json["middle_g"]       = middle_g;
         json["middle_b"]       = middle_b;
@@ -109,6 +113,8 @@ namespace Config {
                     fade_pixels     = json["fade_pixels"]     | 3;
                     num_pixels      = json["num_pixels"]      | 38;
                     led_pin         = json["led_pin"]         | 4;
+                    pixel_color_order = (uint8_t)(json["pixel_color_order"] | 9);
+                    pixel_khz         = json["pixel_khz"]         | 800;
                     middle_r        = (uint8_t)(json["middle_r"]        | 0);
                     middle_g        = (uint8_t)(json["middle_g"]        | 0);
                     middle_b        = (uint8_t)(json["middle_b"]        | 255);

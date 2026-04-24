@@ -74,9 +74,11 @@ void setup() {
     Config::load();
     currentBrightness = Config::base_brightness;
 
-    // Single begin() with the correct pin and length already set
+    // Single begin() with the correct pin, length and type already set
     ws2812b.updateLength(Config::num_pixels);
     ws2812b.setPin(Config::led_pin);
+    ws2812b.updateType((neoPixelType)(Config::pixel_color_order |
+                       (Config::pixel_khz == 400 ? NEO_KHZ400 : NEO_KHZ800)));
     ws2812b.begin();
     ws2812b.clear();
     ws2812b.show();

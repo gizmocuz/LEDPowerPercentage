@@ -12,7 +12,7 @@ uint32_t blendColors(uint32_t c1, uint32_t c2, float t) {
 }
 
 uint32_t getZoneColor(int pixelIndex) {
-    int pixelPct = (pixelIndex * 100) / Config::num_pixels;
+    int pixelPct = (int)(((long)pixelIndex * 100) / Config::num_pixels);
 
     uint32_t RED    = ws2812b.Color(255, 0, 0);
     uint32_t GREEN  = ws2812b.Color(0, 255, 0);
@@ -124,7 +124,7 @@ void blinkConnected() {
         ws2812b.clear();
         for (int i = 0; i < animPixels; i++)
             ws2812b.setPixelColor(i, ws2812b.Color(0, 255, 0));
-        ws2812b.setBrightness(255);
+        ws2812b.setBrightness(currentBrightness);
         ws2812b.show();
         delay(200);
         ws2812b.clear();
@@ -145,7 +145,7 @@ void showAPModeAnimation() {
     ws2812b.clear();
     for (int i = 0; i < animPixels; i++)
         ws2812b.setPixelColor(i, ws2812b.Color(0, 0, brightness));
-    ws2812b.setBrightness(255);
+    ws2812b.setBrightness(currentBrightness);
     ws2812b.show();
 }
 

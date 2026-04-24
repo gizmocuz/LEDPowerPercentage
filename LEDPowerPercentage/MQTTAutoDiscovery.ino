@@ -92,7 +92,9 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
         publishState();
     } else if (strcmp(topic, MQTT_TOPIC_CHARGING_SET) == 0) {
         char msg[16] = {0};
-        memcpy(msg, payload, min((unsigned int)15, length));
+        unsigned int copyLen = min((unsigned int)15, length);
+        memcpy(msg, payload, copyLen);
+        msg[copyLen] = '\0';
         if (strcmp(msg, "charging") == 0)         chargingState = STATE_CHARGING;
         else if (strcmp(msg, "discharging") == 0) chargingState = STATE_DISCHARGING;
         else                                       chargingState = STATE_IDLE;
