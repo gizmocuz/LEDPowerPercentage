@@ -160,6 +160,14 @@ void handleWebConfig() {
         + String(Config::vrm_battery_instance) +
         R"rawhtml(" min="-1" style="width:100px"><br><small style="color:#888">-1 = auto (first Battery Monitor)</small></td></tr>)rawhtml";
 
+    html += R"rawhtml(<tr><td>VRM Charge threshold (A):</td><td><input type="number" name="vrm_charge_threshold" value=")rawhtml"
+        + String(Config::vrm_charge_threshold, 1) +
+        R"rawhtml(" step="0.1" style="width:100px"><br><small style="color:#888">Current above this = charging (default 0.5)</small></td></tr>)rawhtml";
+
+    html += R"rawhtml(<tr><td>VRM Discharge threshold (A):</td><td><input type="number" name="vrm_discharge_threshold" value=")rawhtml"
+        + String(Config::vrm_discharge_threshold, 1) +
+        R"rawhtml(" step="0.1" style="width:100px"><br><small style="color:#888">Current below this = discharging (default -0.5)</small></td></tr>)rawhtml";
+
     html += R"rawhtml(<tr><td>VRM Poll interval (s):</td><td><input type="number" name="vrm_interval" value=")rawhtml"
         + String(Config::vrm_interval) +
         R"rawhtml(" min="10" max="3600" style="width:80px"></td></tr>)rawhtml";
@@ -281,6 +289,14 @@ void handleWebConfigSave() {
         Config::vrm_site_id = max(0, (int)webServer.arg("vrm_site_id").toInt());
     if (webServer.hasArg("vrm_battery_instance"))
         Config::vrm_battery_instance = max(-1, (int)webServer.arg("vrm_battery_instance").toInt());
+    if (webServer.hasArg("vrm_charge_threshold")) {
+        String v = webServer.arg("vrm_charge_threshold"); v.replace(',', '.');
+        Config::vrm_charge_threshold = v.toFloat();
+    }
+    if (webServer.hasArg("vrm_discharge_threshold")) {
+        String v = webServer.arg("vrm_discharge_threshold"); v.replace(',', '.');
+        Config::vrm_discharge_threshold = v.toFloat();
+    }
     if (webServer.hasArg("vrm_interval"))
         Config::vrm_interval = constrain(webServer.arg("vrm_interval").toInt(), 10, 3600);
     vrmReset(); // force re-login with new credentials

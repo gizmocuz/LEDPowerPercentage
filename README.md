@@ -91,6 +91,8 @@ The page auto-refreshes every 5 seconds.
 | VRM API Token | Personal access token from VRM Portal → Preferences → Integrations → Access tokens |
 | VRM Site ID | 0 = auto-select first installation |
 | VRM Battery Instance | -1 = auto-select first Battery Monitor |
+| VRM Charge threshold (A) | Current above this = Charging (default 0.5 A) |
+| VRM Discharge threshold (A) | Current below this = Discharging (default −0.5 A); set e.g. to −3 to treat a small discharge current as Idle |
 | VRM Poll interval (s) | Seconds between polls (default 60) |
 | Low threshold (%) | Upper edge of the red zone |
 | High threshold (%) | Lower edge of the green zone |
@@ -297,6 +299,8 @@ All settings are stored in SPIFFS as `/config.json`. If the filesystem cannot be
 | vrm_api_token | *(empty)* |
 | vrm_site_id | 0 (auto) |
 | vrm_battery_instance | -1 (auto) |
+| vrm_charge_threshold | 0.5 |
+| vrm_discharge_threshold | -0.5 |
 | vrm_interval | 60 |
 | threshold_1 | 20 |
 | threshold_2 | 60 |
@@ -327,9 +331,9 @@ The firmware can poll the [Victron VRM Portal](https://vrm.victronenergy.com) fo
 | VRM field | LED effect |
 |-----------|-----------|
 | SOC (%) | Sets the LED level (0 = strip off, 1–100 = strip on at that %) |
-| Current (I) > 0.5 A | Charging state → **Charging** |
-| Current (I) < −0.5 A | Charging state → **Discharging** |
-| Current (I) ≤ ±0.5 A | Charging state → **Idle** |
+| Current > charge threshold | Charging state → **Charging** |
+| Current < discharge threshold | Charging state → **Discharging** |
+| Current between both thresholds | Charging state → **Idle** |
 
 Serial log messages are prefixed with `[VRM]`.
 

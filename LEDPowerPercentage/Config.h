@@ -15,8 +15,10 @@ namespace Config {
     bool vrm_enabled          = false;
     char vrm_api_token[128]   = "";   // VRM personal access token (no 2FA issues)
     int  vrm_site_id          = 0;    // 0 = auto-select first installation
-    int  vrm_battery_instance = -1;   // -1 = auto (first Battery Monitor found)
-    int  vrm_interval         = 60;   // seconds between polls
+    int   vrm_battery_instance    = -1;  // -1 = auto (first Battery Monitor found)
+    float vrm_discharge_threshold = -0.5f; // A; current below this = discharging (negative value)
+    float vrm_charge_threshold    =  0.5f; // A; current above this = charging
+    int   vrm_interval            = 60;  // seconds between polls
 
     int  threshold_1        = 20;
     int  threshold_2        = 60;
@@ -44,8 +46,10 @@ namespace Config {
         json["vrm_enabled"]   = vrm_enabled;
         json["vrm_api_token"] = vrm_api_token;
         json["vrm_site_id"]          = vrm_site_id;
-        json["vrm_battery_instance"] = vrm_battery_instance;
-        json["vrm_interval"]         = vrm_interval;
+        json["vrm_battery_instance"]    = vrm_battery_instance;
+        json["vrm_discharge_threshold"] = vrm_discharge_threshold;
+        json["vrm_charge_threshold"]    = vrm_charge_threshold;
+        json["vrm_interval"]            = vrm_interval;
 
         json["threshold_1"]    = threshold_1;
         json["threshold_2"]    = threshold_2;
@@ -94,8 +98,10 @@ namespace Config {
                     vrm_enabled  = json["vrm_enabled"]  | false;
                     strlcpy(vrm_api_token, json["vrm_api_token"] | "", sizeof(vrm_api_token));
                     vrm_site_id          = json["vrm_site_id"]          | 0;
-                    vrm_battery_instance = json["vrm_battery_instance"] | -1;
-                    vrm_interval         = json["vrm_interval"]         | 60;
+                    vrm_battery_instance    = json["vrm_battery_instance"]    | -1;
+                    vrm_discharge_threshold = json["vrm_discharge_threshold"] | -0.5f;
+                    vrm_charge_threshold    = json["vrm_charge_threshold"]    |  0.5f;
+                    vrm_interval            = json["vrm_interval"]            | 60;
 
                     threshold_1     = json["threshold_1"]     | 20;
                     threshold_2     = json["threshold_2"]     | 60;

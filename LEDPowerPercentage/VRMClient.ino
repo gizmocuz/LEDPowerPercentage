@@ -232,9 +232,9 @@ void vrmPoll() {
         } else if (strcmp(code, "I") == 0) {
             reportedCurrent = val;
             // Victron BMV: positive current = charging, negative = discharging
-            if (val > 0.5f)       chargingState = STATE_CHARGING;
-            else if (val < -0.5f) chargingState = STATE_DISCHARGING;
-            else                  chargingState = STATE_IDLE;
+            if (val > Config::vrm_charge_threshold)          chargingState = STATE_CHARGING;
+            else if (val < Config::vrm_discharge_threshold)  chargingState = STATE_DISCHARGING;
+            else                                             chargingState = STATE_IDLE;
         }
     }
 
