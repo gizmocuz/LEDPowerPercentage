@@ -33,6 +33,15 @@ The firmware works with any WS2812B or WS2811-based LED strip or lamp. The pixel
   <img src="images/grundig.png" alt="Grundig LED Corner Floor Lamp" height="260">
 </p>
 
+> **5 V LED strips (e.g. WS2812B):** Power the ESP32-C3 and the strip directly from a 5 V supply — no converter needed.
+>
+> **12 V LED strips (e.g. WS2811):** The ESP32-C3 runs on 5 V, so add a **DC-DC Step Down Buck Converter** to step the 12 V rail down to 5 V and power the ESP32 from it — do **not** connect 12 V directly to the board.
+> - [DC-DC Step Down Buck Converter (AliExpress)](https://a.aliexpress.com/_EzSliYA)
+>
+> Wiring diagram for a 12 V setup:
+>
+> ![Wiring diagram — 12 V power source with 12 V LED strip](images/wiringdiagram12v.png)
+
 The LED strip fills from bottom to top proportional to the percentage value. Three colour zones indicate the charge level:
 
 | Zone | Default range | Colour |
