@@ -14,6 +14,11 @@ static uint8_t  rainbowHue   = 0;
 static int      meteorPos    = 0;
 static uint16_t breathePhase = 0;
 static bool     twinkleInit  = false;
+static bool     lavaInit     = false;
+static bool     wDropInit    = false;
+static bool     rainInit     = false;
+static bool     starInit     = false;
+static uint16_t notifPhase   = 0;
 
 struct Sparkle {
     int     pixel;
@@ -55,8 +60,9 @@ const char* animModeToStr(AnimMode mode) {
         case ANIM_GRADIENT:  return "gradient";
         case ANIM_PULSE:     return "pulse";
         case ANIM_RAIN:      return "rain";
-        case ANIM_STARFIELD: return "starfield";
-        default:             return "none";
+        case ANIM_STARFIELD:    return "starfield";
+        case ANIM_NOTIFICATION: return "notification";
+        default:                return "none";
     }
 }
 
@@ -72,7 +78,8 @@ AnimMode strToAnimMode(const char* s) {
     if (strcmp(s, "gradient")  == 0) return ANIM_GRADIENT;
     if (strcmp(s, "pulse")     == 0) return ANIM_PULSE;
     if (strcmp(s, "rain")      == 0) return ANIM_RAIN;
-    if (strcmp(s, "starfield") == 0) return ANIM_STARFIELD;
+    if (strcmp(s, "starfield")    == 0) return ANIM_STARFIELD;
+    if (strcmp(s, "notification") == 0) return ANIM_NOTIFICATION;
     return ANIM_NONE;
 }
 
@@ -83,6 +90,13 @@ AnimMode strToAnimMode(const char* s) {
 void setAnimMode(AnimMode mode) {
     animMode       = mode;
     animNeedsReset = true;
+    // Reset all per-animation init flags so every animation reinitialises cleanly
+    twinkleInit = false;
+    lavaInit    = false;
+    wDropInit   = false;
+    rainInit    = false;
+    starInit    = false;
+    notifPhase  = 0;
 
     if (mode == ANIM_NONE) {
         updateLEDs();
@@ -125,7 +139,7 @@ static void stepFire() {
     if (n > 500) n = 500;
 
     if (animNeedsReset) {
-        memset(fireHeat, 0, sizeof(fireHeat));
+        memset(fireHeat, 0, (size_t)n * sizeof(fireHeat[0]));
     }
     uint32_t now = millis();
     if (now - lastStep < 50) return;
@@ -293,7 +307,6 @@ static void stepBreathe() {
 // --- Lava Lamp: warm blobs drifting upward (50 ms/step) ---
 struct Blob { float pos; float speed; uint8_t r, g, b; };
 static Blob lavaBlobs[4];
-static bool lavaInit = false;
 
 static void stepLava() {
     static uint32_t lastStep = 0;
@@ -336,9 +349,9 @@ static void stepLava() {
             uint8_t er = (existing >> 16) & 0xFF;
             uint8_t eg = (existing >> 8)  & 0xFF;
             uint8_t eb =  existing        & 0xFF;
-            uint8_t nr = (uint8_t)min(255, (int)er + (int)lavaBlobs[b].r * fade / 255);
-            uint8_t ng = (uint8_t)min(255, (int)eg + (int)lavaBlobs[b].g * fade / 255);
-            uint8_t nb = (uint8_t)min(255, (int)eb + (int)lavaBlobs[b].b * fade / 255);
+            uint8_t nr = (uint8_t)min(255, (int)er + ((int)lavaBlobs[b].r * (int)fade) / 255);
+            uint8_t ng = (uint8_t)min(255, (int)eg + ((int)lavaBlobs[b].g * (int)fade) / 255);
+            uint8_t nb = (uint8_t)min(255, (int)eb + ((int)lavaBlobs[b].b * (int)fade) / 255);
             ws2812b.setPixelColor(i, ws2812b.Color(nr, ng, nb));
         }
     }
@@ -348,7 +361,6 @@ static void stepLava() {
 // --- Waterfall: cool blues cascading downward (25 ms/step) ---
 struct WaterfallDrop { float pos; float speed; };
 static WaterfallDrop wDrops[5];
-static bool     wDropInit = false;
 static uint8_t  wSparkleBright[500];
 
 static void stepWaterfall() {
@@ -455,7 +467,7 @@ static void stepGradient() {
     int n = Config::num_pixels;
     ws2812b.setBrightness(currentBrightness);
     for (int i = 0; i < n; i++) {
-        float t = (float)i / (float)(n - 1);  // 0 (bottom) .. 1 (top)
+        float t = (n > 1) ? (float)i / (float)(n - 1) : 0.0f;  // 0 (bottom) .. 1 (top)
         uint8_t r = (uint8_t)((bR + t * (tR - bR)) * breatheT);
         uint8_t g = (uint8_t)((bG + t * (tG - bG)) * breatheT);
         uint8_t b = (uint8_t)((bB + t * (tB - bB)) * breatheT);
@@ -539,7 +551,6 @@ static void stepPulse() {
 // --- Rain: blue drops falling downward (25 ms/step) ---
 struct RainDrop { float pos; float speed; int splashFrames; };
 static RainDrop rainDrops[6];
-static bool     rainInit = false;
 
 static void stepRain() {
     static uint32_t lastStep = 0;
@@ -599,7 +610,6 @@ static void stepRain() {
 // --- Starfield: stars slowly drifting upward with twinkle (40 ms/step) ---
 struct Star { float pos; float speed; float phase; float phaseSpeed; uint8_t r, g, b; };
 static Star stars[12];
-static bool starInit = false;
 
 static void stepStarfield() {
     static uint32_t lastStep = 0;
@@ -648,6 +658,41 @@ static void stepStarfield() {
     ws2812b.show();
 }
 
+// --- Notification: two quick amber pulses then a pause — mimics Alexa notification ring (25 ms/step) ---
+static void stepNotification() {
+    static uint32_t lastStep = 0;
+    uint32_t now = millis();
+    if (now - lastStep < 25) return;
+    lastStep = now;
+
+    if (animNeedsReset) notifPhase = 0;
+
+    // Cycle: 0-39 up | 40-79 down | 80-119 gap | 120-159 up | 160-199 down | 200-319 long pause
+    // Total: 320 steps × 25 ms = 8 s
+    const uint16_t TOTAL = 320;
+    uint16_t p = notifPhase;
+
+    uint8_t level = 0;
+    if      (p <  40) level = (uint8_t)(p * 255 / 39);
+    else if (p <  80) level = (uint8_t)((79 - p) * 255 / 39);
+    else if (p < 120) level = 0;
+    else if (p < 160) level = (uint8_t)((p - 120) * 255 / 39);
+    else if (p < 200) level = (uint8_t)((199 - p) * 255 / 39);
+    // 200-319: level stays 0 (pause)
+
+    // Amber: R=255, G=140, B=0 — scale by level
+    uint8_t r = (uint8_t)((uint32_t)255 * level / 255u);
+    uint8_t g = (uint8_t)((uint32_t)140 * level / 255u);
+
+    int n = Config::num_pixels;
+    if (n > 500) n = 500;
+    ws2812b.setBrightness(currentBrightness);
+    ws2812b.fill(ws2812b.Color(r, g, 0));
+    ws2812b.show();
+
+    notifPhase = (notifPhase + 1) % TOTAL;
+}
+
 // ---------------------------------------------------------------------------
 // handleAnimation — call from loop(); dispatches to the active animation
 // ---------------------------------------------------------------------------
@@ -656,17 +701,18 @@ void handleAnimation() {
     if (animMode == ANIM_NONE || colorOverrideActive) return;
 
     switch (animMode) {
-        case ANIM_RAINBOW:   stepRainbow();   break;
-        case ANIM_FIRE:      stepFire();      break;
-        case ANIM_METEOR:    stepMeteor();    break;
-        case ANIM_TWINKLE:   stepTwinkle();   break;
-        case ANIM_BREATHE:   stepBreathe();   break;
-        case ANIM_LAVA:      stepLava();      break;
-        case ANIM_WATERFALL: stepWaterfall(); break;
-        case ANIM_GRADIENT:  stepGradient();  break;
-        case ANIM_PULSE:     stepPulse();     break;
-        case ANIM_RAIN:      stepRain();      break;
-        case ANIM_STARFIELD: stepStarfield(); break;
+        case ANIM_RAINBOW:      stepRainbow();      break;
+        case ANIM_FIRE:         stepFire();         break;
+        case ANIM_METEOR:       stepMeteor();       break;
+        case ANIM_TWINKLE:      stepTwinkle();      break;
+        case ANIM_BREATHE:      stepBreathe();      break;
+        case ANIM_LAVA:         stepLava();         break;
+        case ANIM_WATERFALL:    stepWaterfall();    break;
+        case ANIM_GRADIENT:     stepGradient();     break;
+        case ANIM_PULSE:        stepPulse();        break;
+        case ANIM_RAIN:         stepRain();         break;
+        case ANIM_STARFIELD:    stepStarfield();    break;
+        case ANIM_NOTIFICATION: stepNotification(); break;
         default: break;
     }
 

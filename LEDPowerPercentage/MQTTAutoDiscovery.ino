@@ -69,7 +69,7 @@ void publishAutoConfig() {
     autoconfPayload["brightness_scale"]  = 100;
     autoconfPayload["icon"]              = "mdi:led-strip-variant";
 
-    serializeJson(autoconfPayload, mqttPayload);
+    serializeJson(autoconfPayload, mqttPayload, sizeof(mqttPayload));
     mqttClient.publish(MQTT_TOPIC_AUTOCONF_LIGHT, mqttPayload, true);
 
     autoconfPayload.clear();
@@ -87,7 +87,7 @@ void publishAutoConfig() {
     autoconfPayload["options"][2]         = "discharging";
     autoconfPayload["icon"]               = "mdi:battery-charging";
 
-    serializeJson(autoconfPayload, mqttPayload);
+    serializeJson(autoconfPayload, mqttPayload, sizeof(mqttPayload));
     mqttClient.publish(MQTT_TOPIC_AUTOCONF_CHARGE, mqttPayload, true);
 
     autoconfPayload.clear();
@@ -103,7 +103,7 @@ void publishAutoConfig() {
     autoconfPayload["supported_color_modes"][0] = "rgb";
     autoconfPayload["icon"]               = "mdi:palette";
 
-    serializeJson(autoconfPayload, mqttPayload);
+    serializeJson(autoconfPayload, mqttPayload, sizeof(mqttPayload));
     mqttClient.publish(MQTT_TOPIC_AUTOCONF_COLOR, mqttPayload, true);
 
     autoconfPayload.clear();
@@ -127,9 +127,10 @@ void publishAutoConfig() {
     autoconfPayload["options"][9]          = "pulse";
     autoconfPayload["options"][10]         = "rain";
     autoconfPayload["options"][11]         = "starfield";
+    autoconfPayload["options"][12]         = "notification";
     autoconfPayload["icon"]               = "mdi:animation-play";
 
-    serializeJson(autoconfPayload, mqttPayload);
+    serializeJson(autoconfPayload, mqttPayload, sizeof(mqttPayload));
     mqttClient.publish(MQTT_TOPIC_AUTOCONF_ANIMATION, mqttPayload, true);
 }
 
@@ -188,8 +189,8 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
         updateLEDs();
         publishColorState();
     } else if (strcmp(topic, MQTT_TOPIC_ANIMATION_SET) == 0) {
-        char msg[16] = {0};
-        unsigned int copyLen = min((unsigned int)15, length);
+        char msg[32] = {0};
+        unsigned int copyLen = min((unsigned int)31, length);
         memcpy(msg, payload, copyLen);
         msg[copyLen] = '\0';
         setAnimMode(strToAnimMode(msg));

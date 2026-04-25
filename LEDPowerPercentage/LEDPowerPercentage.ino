@@ -34,7 +34,8 @@ enum ChargingState { STATE_IDLE, STATE_CHARGING, STATE_DISCHARGING };
 
 // --- Decorative animation mode ---
 enum AnimMode { ANIM_NONE = 0, ANIM_RAINBOW, ANIM_FIRE, ANIM_METEOR, ANIM_TWINKLE, ANIM_BREATHE,
-                ANIM_LAVA, ANIM_WATERFALL, ANIM_GRADIENT, ANIM_PULSE, ANIM_RAIN, ANIM_STARFIELD };
+                ANIM_LAVA, ANIM_WATERFALL, ANIM_GRADIENT, ANIM_PULSE, ANIM_RAIN, ANIM_STARFIELD,
+                ANIM_NOTIFICATION };
 
 // --- Device identifier (built from MAC address in setup) ---
 char identifier[24];

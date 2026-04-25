@@ -81,14 +81,16 @@ Displays:
 - Current LED state (ON / OFF)
 - Current level (%)
 - Charging state badge (Idle / Charging / Discharging)
+- Active animation name
 
 Controls:
 
 - **Slider** — drag to set the level (0–100 %); the strip updates automatically when you release. Setting to 0 turns the strip off; any value above 0 turns it on.
 - **Turn ON / Turn OFF** buttons — toggle without changing the saved level. Turning on at 0 % defaults to 100 %.
 - **Idle / Charging / Discharging** buttons — set the charging state animation. Selecting Charging or Discharging automatically turns the strip on if it is off.
+- **Animation dropdown** — select an ambient animation from a grouped list (see [Animations](#animations) below). Choosing an animation overrides the colour display; selecting **-- Off --** returns to the normal percentage display.
 
-The page auto-refreshes every 5 seconds.
+The status values update every 5 seconds via background fetch without reloading the page. The brightness slider is not overwritten while it is being dragged.
 
 ### Configuration page — `/config`
 
@@ -144,6 +146,7 @@ Returns the current device state.
   "state": "on",
   "brightness": 75,
   "charging_state": "idle",
+  "animation": "none",
   "ip": "192.168.1.42",
   "rssi": -62
 }
@@ -154,6 +157,7 @@ Returns the current device state.
 | `state` | `"on"` \| `"off"` |
 | `brightness` | 0–100 |
 | `charging_state` | `"idle"` \| `"charging"` \| `"discharging"` |
+| `animation` | `"none"` \| animation name (see [Animations](#animations)) |
 | `ip` | current IP address |
 | `rssi` | WiFi signal strength in dBm |
 
@@ -207,6 +211,38 @@ curl -X POST http://192.168.1.42/api/state \
 
 ---
 
+### `POST /api/animation`
+
+Starts or stops an ambient animation on the strip.
+
+**Request body (JSON):**
+```json
+{"animation": "fire"}
+```
+
+| Field | Values |
+|-------|--------|
+| `animation` | `"none"` \| `"rainbow"` \| `"fire"` \| `"meteor"` \| `"twinkle"` \| `"breathe"` \| `"lava"` \| `"waterfall"` \| `"gradient"` \| `"pulse"` \| `"rain"` \| `"starfield"` \| `"notification"` |
+
+Setting `"none"` stops the animation and returns to the normal percentage display. Any other value starts that animation and overrides the normal display (and clears any active solid-colour override).
+
+**Response:** same format as `GET /api/state` with the updated values.
+
+**Examples:**
+```bash
+# Start fire animation
+curl -X POST http://192.168.1.42/api/animation \
+  -H "Content-Type: application/json" \
+  -d '{"animation":"fire"}'
+
+# Stop animation
+curl -X POST http://192.168.1.42/api/animation \
+  -H "Content-Type: application/json" \
+  -d '{"animation":"none"}'
+```
+
+---
+
 ### `POST /api/color`
 
 Fills the entire strip with a single RGB colour immediately. Useful for testing the **Pixel color order** setting — send a pure red, green, or blue and confirm the correct pixels light up.
@@ -247,7 +283,7 @@ curl -X POST http://192.168.1.42/api/color \
 
 MQTT is **disabled by default** and is mutually exclusive with Victron VRM — only one can be active at a time. Enable it on the Configuration page, fill in the broker details, and press **Save**. The strip blinks twice to confirm the connection; no reboot is needed.
 
-When enabled, the firmware uses Home Assistant MQTT Auto Discovery and registers two entities automatically.
+When enabled, the firmware uses Home Assistant MQTT Auto Discovery and registers four entities automatically.
 
 ### Light entity
 
@@ -310,11 +346,31 @@ mosquitto_pub -h <broker> \
   -m '{"state":"OFF"}'
 ```
 
+### Animation select entity
+
+A fourth entity registers as a select entity for controlling ambient animations.
+
+| Topic | Description |
+|-------|-------------|
+| `esp32-ledpower/<ID>/animation/state` | Current animation name (plain text, read) |
+| `esp32-ledpower/<ID>/animation/set` | Set animation by name (plain text, write) |
+
+**Options:** `none`, `rainbow`, `fire`, `meteor`, `twinkle`, `breathe`, `lava`, `waterfall`, `gradient`, `pulse`, `rain`, `starfield`, `notification`
+
+**Example — start the fire animation via MQTT:**
+```bash
+mosquitto_pub -h <broker> \
+  -t "esp32-ledpower/LEDPOWER-AABBCCDDEEFF/animation/set" \
+  -m "fire"
+```
+
 The device ID is `LEDPOWER-` followed by the full 6-byte MAC address in uppercase hex (visible on the status page and in the serial log).
 
 ---
 
 ## Animations
+
+### System animations
 
 | Situation | Animation |
 |-----------|-----------|
@@ -329,6 +385,27 @@ The device ID is `LEDPOWER-` followed by the full 6-byte MAC address in uppercas
 - The charge/discharge animation starts immediately when the state is set, then repeats at the configured interval (default 10 s, range 2–60 s).
 - The animation only runs when the LED strip is ON and **Charge/Discharge animation** is enabled in the configuration.
 - Switching between Charging and Discharging resets and restarts the sweep immediately.
+
+### Ambient / relaxing animations
+
+User-selectable animations available from the web UI dropdown, REST API, or MQTT. Selecting any animation overrides the normal percentage display and the charge/discharge sweep for the duration. Selecting **none** (or `"none"` via API/MQTT) returns to the normal display.
+
+| Name | Description |
+|------|-------------|
+| `rainbow` | Continuous hue-cycle scrolling across all pixels |
+| `fire` | Flickering red/orange fire effect rising from the base |
+| `meteor` | Bright comet with a fading trail shooting upward repeatedly |
+| `twinkle` | Random pixels sparkle on and off in warm white |
+| `breathe` | Whole strip fades in and out in soft white |
+| `lava` | Slow-moving blobs of colour drifting up and down |
+| `waterfall` | Cyan droplets falling from top to bottom |
+| `gradient` | Slow animated gradient cycling through hues |
+| `pulse` | Rapid colour pulses rippling across the strip |
+| `rain` | Blue rain drops falling at random positions |
+| `starfield` | Stars appearing and slowly fading out |
+| `notification` | Two quick amber pulses then a pause — mimics the Alexa notification ring |
+
+Setting a solid colour via `/api/color` or the MQTT colour entity also clears any active animation. Starting an animation clears any active solid colour override.
 
 ---
 
@@ -446,7 +523,8 @@ Board: **ESP32C3 Dev Module** (or compatible) via the ESP32 Arduino core.
 LEDPowerPercentage/
 ├── LEDPowerPercentage.ino   # Main file: globals, setup(), loop()
 ├── Config.h                 # All persistent settings + SPIFFS load/save
-├── LEDControl.ino           # LED rendering, colour zones, animations
+├── LEDControl.ino           # LED rendering, colour zones, charge/discharge sweep
+├── Animations.ino           # Ambient animation engine (11 animations)
 ├── MQTTAutoDiscovery.ino    # MQTT state publishing, HA auto-discovery, command callback
 ├── WebServer.ino            # Web UI handlers + REST API
 └── WiFiMqttSetup.ino        # WiFi captive portal, OTA, MQTT reconnect
