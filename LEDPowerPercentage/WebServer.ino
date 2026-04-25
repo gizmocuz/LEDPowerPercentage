@@ -10,7 +10,7 @@ void handleWebRoot() {
     String html;
     html.reserve(4096);
 
-    html += R"rawhtml(<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="5"><link rel="icon" href="data:,"><style>body { font-family: Helvetica; max-width: 480px; margin: 0 auto; padding: 12px; text-align: center; }h1 { font-size: 1.4em; }.state-on  { display: inline-block; padding: 4px 16px; border-radius: 4px; background: #17A2FC; color: #fff; font-weight: bold; }.state-off { display: inline-block; padding: 4px 16px; border-radius: 4px; background: #888;    color: #fff; font-weight: bold; }.state-idle { display:inline-block; padding:4px 16px; border-radius:4px; background:#888; color:#fff; font-weight:bold; }.state-charging { display:inline-block; padding:4px 16px; border-radius:4px; background:#F5A623; color:#fff; font-weight:bold; }.state-discharging { display:inline-block; padding:4px 16px; border-radius:4px; background:#E74C3C; color:#fff; font-weight:bold; }input[type=range] { width: 80%; }.btn { display: inline-block; background: #195B6A; color: #fff; padding: 10px 28px;       border: none; border-radius: 4px; font-size: 1em; cursor: pointer; text-decoration: none; margin: 4px; }.btn-on  { background: #17A2FC; }.btn-off { background: #888; }hr { margin: 16px 0; }</style></head><body><h1>LED Power Percentage</h1><p><b>Device:</b> )rawhtml";
+    html += R"rawhtml(<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,"><style>body { font-family: Helvetica; max-width: 480px; margin: 0 auto; padding: 12px; text-align: center; }h1 { font-size: 1.4em; }.state-on  { display: inline-block; padding: 4px 16px; border-radius: 4px; background: #17A2FC; color: #fff; font-weight: bold; }.state-off { display: inline-block; padding: 4px 16px; border-radius: 4px; background: #888;    color: #fff; font-weight: bold; }.state-idle { display:inline-block; padding:4px 16px; border-radius:4px; background:#888; color:#fff; font-weight:bold; }.state-charging { display:inline-block; padding:4px 16px; border-radius:4px; background:#F5A623; color:#fff; font-weight:bold; }.state-discharging { display:inline-block; padding:4px 16px; border-radius:4px; background:#E74C3C; color:#fff; font-weight:bold; }input[type=range] { width: 80%; }.btn { display: inline-block; background: #195B6A; color: #fff; padding: 10px 28px;       border: none; border-radius: 4px; font-size: 1em; cursor: pointer; text-decoration: none; margin: 4px; }.btn-on  { background: #17A2FC; }.btn-off { background: #888; }hr { margin: 16px 0; }</style></head><body><h1>LED Power Percentage</h1><p><b>Device:</b> )rawhtml";
     html += identifier;
     html += R"rawhtml(</p><p><b>Firmware:</b> )rawhtml";
     html += app_version;
@@ -19,39 +19,39 @@ void handleWebRoot() {
     // State indicator
     html += R"rawhtml(<p><b>State:</b> )rawhtml";
     if (ledState) {
-        html += R"rawhtml(<span class="state-on">ON</span>)rawhtml";
+        html += R"rawhtml(<span id="s-state" class="state-on">ON</span>)rawhtml";
     } else {
-        html += R"rawhtml(<span class="state-off">OFF</span>)rawhtml";
+        html += R"rawhtml(<span id="s-state" class="state-off">OFF</span>)rawhtml";
     }
     html += R"rawhtml(</p>)rawhtml";
 
     // Level
-    html += R"rawhtml(<p><b>Level:</b> )rawhtml"
+    html += R"rawhtml(<p><b>Level:</b> <span id="s-level">)rawhtml"
         + String(ledPercent) +
-        R"rawhtml(%</p>)rawhtml";
+        R"rawhtml(</span>%</p>)rawhtml";
 
     // Charging status (3-state)
     html += R"rawhtml(<p><b>Charging:</b> )rawhtml";
     if (chargingState == STATE_CHARGING) {
-        html += R"rawhtml(<span class="state-charging">Charging</span>)rawhtml";
+        html += R"rawhtml(<span id="s-charge" class="state-charging">Charging</span>)rawhtml";
     } else if (chargingState == STATE_DISCHARGING) {
-        html += R"rawhtml(<span class="state-discharging">Discharging</span>)rawhtml";
+        html += R"rawhtml(<span id="s-charge" class="state-discharging">Discharging</span>)rawhtml";
     } else {
-        html += R"rawhtml(<span class="state-idle">Idle</span>)rawhtml";
+        html += R"rawhtml(<span id="s-charge" class="state-idle">Idle</span>)rawhtml";
     }
     html += R"rawhtml(</p>)rawhtml";
 
     // Animation status
-    html += R"rawhtml(<p><b>Animation:</b> <span>)rawhtml";
+    html += R"rawhtml(<p><b>Animation:</b> <span id="s-anim">)rawhtml";
     html += animModeToStr(animMode);
     html += R"rawhtml(</span></p>)rawhtml";
 
     html += R"rawhtml(<hr>)rawhtml";
 
     // Slider form — submits automatically when the user releases the slider
-    html += R"rawhtml(<form method="GET" action="/set"><input type="range" name="pct" min="0" max="100" value=")rawhtml"
+    html += R"rawhtml(<form method="GET" action="/set"><input id="s-slider" type="range" name="pct" min="0" max="100" value=")rawhtml"
         + String(ledPercent) +
-        R"rawhtml(" oninput="this.nextElementSibling.value=this.value" onchange="this.form.submit()"><output>)rawhtml"
+        R"rawhtml(" oninput="this.nextElementSibling.value=this.value" onchange="this.form.submit()"><output id="s-out">)rawhtml"
         + String(ledPercent) +
         R"rawhtml(</output>%<input type="hidden" name="state" value="on"></form>)rawhtml";
 
@@ -62,7 +62,7 @@ void handleWebRoot() {
     // Animation dropdown
     html += R"rawhtml(<p><b>Animation:</b></p>)rawhtml";
     html += R"rawhtml(<p>)rawhtml";
-    html += R"rawhtml(<select onchange="location.href='/set?animation='+this.value" style="font-size:1em;padding:6px;width:90%;max-width:340px">)rawhtml";
+    html += R"rawhtml(<select id="s-select" onchange="location.href='/set?animation='+this.value" style="font-size:1em;padding:6px;width:90%;max-width:340px">)rawhtml";
     html += String(R"rawhtml(<option value="none")rawhtml") + (animMode == ANIM_NONE ? " selected" : "") + ">-- Off --</option>";
     html += R"rawhtml(<optgroup label="Ambient / Relaxing">)rawhtml";
     html += String(R"rawhtml(<option value="lava")rawhtml")      + (animMode == ANIM_LAVA      ? " selected" : "") + ">Lava Lamp</option>";
@@ -84,7 +84,7 @@ void handleWebRoot() {
     html += R"rawhtml(</select>)rawhtml";
     html += R"rawhtml(</p>)rawhtml";
 
-    html += R"rawhtml(<hr><p><a href="/config">Configuration</a></p></body></html>)rawhtml";
+    html += R"rawhtml(<hr><p><a href="/config">Configuration</a></p><script>var cs={idle:['state-idle','Idle'],charging:['state-charging','Charging'],discharging:['state-discharging','Discharging']};function upd(){fetch('/api/state').then(function(r){return r.json();}).then(function(d){var e=document.getElementById('s-state');e.className=d.state==='on'?'state-on':'state-off';e.textContent=d.state==='on'?'ON':'OFF';document.getElementById('s-level').textContent=d.brightness;var sl=document.getElementById('s-slider');if(!sl.matches(':active')){sl.value=d.brightness;document.getElementById('s-out').value=d.brightness;}var c=cs[d.charging_state]||cs.idle;var cb=document.getElementById('s-charge');cb.className=c[0];cb.textContent=c[1];document.getElementById('s-select').value=d.animation||'none';document.getElementById('s-anim').textContent=d.animation||'none';}).catch(function(){});}setInterval(upd,5000);</script></body></html>)rawhtml";
 
     webServer.send(200, "text/html", html);
 }
