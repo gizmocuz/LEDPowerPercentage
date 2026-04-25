@@ -29,8 +29,8 @@ The firmware works with any WS2812B or WS2811-based LED strip or lamp. The pixel
 | Grundig LED Corner Floor Lamp | Replace the built-in controller with the ESP32-C3 |
 
 <p float="left">
-  <img src="images/phillips.png" alt="Philips RGBIC Ambient Floor Lamp" height="260">
-  <img src="images/grundig.png" alt="Grundig LED Corner Floor Lamp" height="260">
+  <img src="images/phillips.jpg" alt="Philips RGBIC Ambient Floor Lamp" height="260">
+  <img src="images/grundig.jpg" alt="Grundig LED Corner Floor Lamp" height="260">
 </p>
 
 > **5 V LED strips (e.g. WS2812B):** Power the ESP32-C3 and the strip directly from a 5 V supply — no converter needed.
@@ -40,7 +40,7 @@ The firmware works with any WS2812B or WS2811-based LED strip or lamp. The pixel
 >
 > Wiring diagram for a 12 V setup:
 >
-> ![Wiring diagram — 12 V power source with 12 V LED strip](images/wiringdiagram12v.png)
+> ![Wiring diagram — 12 V power source with 12 V LED strip](images/wiringdiagram12v.jpg)
 
 The LED strip fills from bottom to top proportional to the percentage value. Three colour zones indicate the charge level:
 
@@ -281,6 +281,33 @@ The `brightness` value is on a 0–100 scale (`brightness_scale: 100`). Setting 
 mosquitto_pub -h <broker> \
   -t "esp32-ledpower/LEDPOWER-AABBCCDDEEFF/charging_state/set" \
   -m "charging"
+```
+
+### RGB color light entity
+
+A third entity registers as an RGB light. Sending it a colour fills every pixel on the strip with that solid colour, overriding the normal percentage display. Turning it off restores the normal display. The override is also cleared whenever the main light entity receives a new command.
+
+| Topic | Description |
+|-------|-------------|
+| `esp32-ledpower/<ID>/color/state` | State JSON (read) |
+| `esp32-ledpower/<ID>/color/command` | Command JSON (write) |
+
+**State / command payload:**
+```json
+{"state": "ON", "color": {"r": 255, "g": 0, "b": 0}}
+```
+
+**Examples:**
+```bash
+# Fill strip with red
+mosquitto_pub -h <broker> \
+  -t "esp32-ledpower/LEDPOWER-AABBCCDDEEFF/color/command" \
+  -m '{"state":"ON","color":{"r":255,"g":0,"b":0}}'
+
+# Restore normal display
+mosquitto_pub -h <broker> \
+  -t "esp32-ledpower/LEDPOWER-AABBCCDDEEFF/color/command" \
+  -m '{"state":"OFF"}'
 ```
 
 The device ID is `LEDPOWER-` followed by the full 6-byte MAC address in uppercase hex (visible on the status page and in the serial log).

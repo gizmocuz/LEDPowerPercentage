@@ -40,8 +40,11 @@ char MQTT_TOPIC_AVAILABILITY[128];
 char MQTT_TOPIC_STATE[128];
 char MQTT_TOPIC_COMMAND[128];
 char MQTT_TOPIC_CHARGING_SET[128];
+char MQTT_TOPIC_COLOR_COMMAND[128];
+char MQTT_TOPIC_COLOR_STATE[128];
 char MQTT_TOPIC_AUTOCONF_LIGHT[128];
 char MQTT_TOPIC_AUTOCONF_CHARGE[128];
+char MQTT_TOPIC_AUTOCONF_COLOR[128];
 
 // --- Hardware objects ---
 Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_RBG + NEO_KHZ800);
@@ -58,6 +61,12 @@ ChargingState chargingState        = STATE_IDLE;
 uint8_t  currentBrightness         = 128;
 bool     shouldSaveConfig          = false;
 uint32_t lastMqttConnectionAttempt = 0;
+
+// --- Color override state (solid-color display mode via MQTT or REST) ---
+bool    colorOverrideActive = false;
+uint8_t colorOverrideR      = 0;
+uint8_t colorOverrideG      = 0;
+uint8_t colorOverrideB      = 0;
 
 // ============================================================
 // setup
@@ -103,6 +112,10 @@ void setup() {
     snprintf(MQTT_TOPIC_AUTOCONF_LIGHT,  sizeof(MQTT_TOPIC_AUTOCONF_LIGHT)  - 1, "%s/light/%s/%s/config",
              Config::mqtt_discovery_prefix, FIRMWARE_PREFIX, identifier);
     snprintf(MQTT_TOPIC_AUTOCONF_CHARGE, sizeof(MQTT_TOPIC_AUTOCONF_CHARGE) - 1, "%s/select/%s_%s_charging_state/config",
+             Config::mqtt_discovery_prefix, FIRMWARE_PREFIX, identifier);
+    snprintf(MQTT_TOPIC_COLOR_COMMAND,   sizeof(MQTT_TOPIC_COLOR_COMMAND)   - 1, "%s/%s/color/command",  FIRMWARE_PREFIX, identifier);
+    snprintf(MQTT_TOPIC_COLOR_STATE,     sizeof(MQTT_TOPIC_COLOR_STATE)     - 1, "%s/%s/color/state",    FIRMWARE_PREFIX, identifier);
+    snprintf(MQTT_TOPIC_AUTOCONF_COLOR,  sizeof(MQTT_TOPIC_AUTOCONF_COLOR)  - 1, "%s/light/%s_%s_color/config",
              Config::mqtt_discovery_prefix, FIRMWARE_PREFIX, identifier);
 
     Serial.printf("MQTT availability: %s\n", MQTT_TOPIC_AVAILABILITY);

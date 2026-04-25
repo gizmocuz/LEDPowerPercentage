@@ -101,8 +101,10 @@ void mqttReconnect() {
             mqttClient.publish(MQTT_TOPIC_AVAILABILITY, AVAILABILITY_ONLINE, false);
             publishAutoConfig();
             publishState();
+            publishColorState();
             mqttClient.subscribe(MQTT_TOPIC_COMMAND);
             mqttClient.subscribe(MQTT_TOPIC_CHARGING_SET);
+            mqttClient.subscribe(MQTT_TOPIC_COLOR_COMMAND);
             return;
         }
 

@@ -84,6 +84,10 @@ void handleWebSet() {
             ledState = true;
         }
     }
+    if (colorOverrideActive) {
+        colorOverrideActive = false;
+        publishColorState();
+    }
     updateLEDs();
     publishState();
     webServer.sendHeader("Location", "/");
@@ -471,6 +475,10 @@ void handleApiStatePost() {
         }
     }
 
+    if (colorOverrideActive) {
+        colorOverrideActive = false;
+        publishColorState();
+    }
     updateLEDs();
     publishState();
     handleApiStateGet(); // respond with updated state
@@ -508,8 +516,12 @@ void handleApiColor() {
     uint8_t g = (uint8_t)constrain((int)doc["g"], 0, 255);
     uint8_t b = (uint8_t)constrain((int)doc["b"], 0, 255);
 
-    ws2812b.fill(ws2812b.Color(r, g, b));
-    ws2812b.show();
+    colorOverrideR      = r;
+    colorOverrideG      = g;
+    colorOverrideB      = b;
+    colorOverrideActive = (r || g || b);
+    updateLEDs();
+    publishColorState();
 
     char payload[64];
     snprintf(payload, sizeof(payload), "{\"r\":%d,\"g\":%d,\"b\":%d}", r, g, b);

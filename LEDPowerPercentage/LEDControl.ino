@@ -43,6 +43,11 @@ uint32_t getZoneColor(int pixelIndex) {
 
 void updateLEDs() {
     ws2812b.setBrightness(currentBrightness);
+    if (colorOverrideActive) {
+        ws2812b.fill(ws2812b.Color(colorOverrideR, colorOverrideG, colorOverrideB));
+        ws2812b.show();
+        return;
+    }
     ws2812b.clear();
     if (!ledState) {
         ws2812b.show();
@@ -62,7 +67,7 @@ void handleStateAnimation() {
     static bool     initialised   = false;
     static ChargingState lastState = STATE_IDLE;
 
-    if (chargingState == STATE_IDLE || !ledState || !Config::charge_anim) {
+    if (chargingState == STATE_IDLE || !ledState || !Config::charge_anim || colorOverrideActive) {
         animPixel   = -1;
         initialised = false;
         lastState   = STATE_IDLE;

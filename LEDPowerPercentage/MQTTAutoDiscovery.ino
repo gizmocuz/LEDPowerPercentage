@@ -19,10 +19,25 @@ void publishState() {
 
 // ---------------------------------------------------------------------------
 
+void publishColorState() {
+    if (!Config::mqtt_enabled) return;
+    DynamicJsonDocument doc(128);
+    char payload[128];
+    doc["state"] = colorOverrideActive ? "ON" : "OFF";
+    JsonObject color = doc.createNestedObject("color");
+    color["r"] = colorOverrideR;
+    color["g"] = colorOverrideG;
+    color["b"] = colorOverrideB;
+    serializeJson(doc, payload);
+    mqttClient.publish(MQTT_TOPIC_COLOR_STATE, payload, false);
+}
+
+// ---------------------------------------------------------------------------
+
 void publishAutoConfig() {
     if (!Config::mqtt_enabled) return;
-    char mqttPayload[1024];
-    DynamicJsonDocument autoconfPayload(1024);
+    char mqttPayload[2048];
+    DynamicJsonDocument autoconfPayload(2048);
     DynamicJsonDocument device(256);
     StaticJsonDocument<64> identifiersDoc;
     JsonArray identifiers = identifiersDoc.to<JsonArray>();
@@ -67,6 +82,22 @@ void publishAutoConfig() {
 
     serializeJson(autoconfPayload, mqttPayload);
     mqttClient.publish(MQTT_TOPIC_AUTOCONF_CHARGE, mqttPayload, true);
+
+    autoconfPayload.clear();
+
+    // --- Payload 3: RGB color light entity ---
+    autoconfPayload["name"]               = String(identifier) + " Color";
+    autoconfPayload["unique_id"]          = String(identifier) + "_color";
+    autoconfPayload["schema"]             = "json";
+    autoconfPayload["device"]             = device.as<JsonObject>();
+    autoconfPayload["availability_topic"] = MQTT_TOPIC_AVAILABILITY;
+    autoconfPayload["state_topic"]        = MQTT_TOPIC_COLOR_STATE;
+    autoconfPayload["command_topic"]      = MQTT_TOPIC_COLOR_COMMAND;
+    autoconfPayload["supported_color_modes"][0] = "rgb";
+    autoconfPayload["icon"]               = "mdi:palette";
+
+    serializeJson(autoconfPayload, mqttPayload);
+    mqttClient.publish(MQTT_TOPIC_AUTOCONF_COLOR, mqttPayload, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -99,5 +130,26 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
         else if (strcmp(msg, "discharging") == 0) chargingState = STATE_DISCHARGING;
         else                                       chargingState = STATE_IDLE;
         publishState();
+    } else if (strcmp(topic, MQTT_TOPIC_COLOR_COMMAND) == 0) {
+        DynamicJsonDocument doc(256);
+        if (deserializeJson(doc, payload, length) != DeserializationError::Ok) {
+            Serial.println("MQTT: failed to parse color command JSON");
+            return;
+        }
+        bool turnOff = false;
+        if (doc.containsKey("state")) {
+            const char* s = doc["state"].as<const char*>();
+            if (s && strcmp(s, "OFF") == 0) turnOff = true;
+        }
+        if (turnOff) {
+            colorOverrideActive = false;
+        } else if (doc.containsKey("color")) {
+            colorOverrideR      = (uint8_t)constrain((int)doc["color"]["r"], 0, 255);
+            colorOverrideG      = (uint8_t)constrain((int)doc["color"]["g"], 0, 255);
+            colorOverrideB      = (uint8_t)constrain((int)doc["color"]["b"], 0, 255);
+            colorOverrideActive = true;
+        }
+        updateLEDs();
+        publishColorState();
     }
 }
