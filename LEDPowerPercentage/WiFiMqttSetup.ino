@@ -41,6 +41,7 @@ void setupWifi() {
     webServer.on("/api/state",      HTTP_POST, handleApiStatePost);
     webServer.on("/api/brightness", HTTP_GET,  handleApiBrightness);
     webServer.on("/api/color",      HTTP_POST, handleApiColor);
+    webServer.on("/api/animation",  HTTP_POST, handleApiAnimation);
     webServer.onNotFound(handleWebNotFound);
     webServer.begin();
 
@@ -105,6 +106,8 @@ void mqttReconnect() {
             mqttClient.subscribe(MQTT_TOPIC_COMMAND);
             mqttClient.subscribe(MQTT_TOPIC_CHARGING_SET);
             mqttClient.subscribe(MQTT_TOPIC_COLOR_COMMAND);
+            mqttClient.subscribe(MQTT_TOPIC_ANIMATION_SET);
+            publishAnimationState();
             return;
         }
 

@@ -8,9 +8,9 @@ void handleWebRoot() {
              Config::middle_r, Config::middle_g, Config::middle_b);
 
     String html;
-    html.reserve(2048);
+    html.reserve(4096);
 
-    html += R"rawhtml(<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="5"><link rel="icon" href="data:,"><style>body { font-family: Helvetica; max-width: 480px; margin: 0 auto; padding: 12px; text-align: center; }h1 { font-size: 1.4em; }.state-on  { display: inline-block; padding: 4px 16px; border-radius: 4px; background: #17A2FC; color: #fff; font-weight: bold; }.state-off { display: inline-block; padding: 4px 16px; border-radius: 4px; background: #888;    color: #fff; font-weight: bold; }.state-idle { display:inline-block; padding:4px 16px; border-radius:4px; background:#888; color:#fff; font-weight:bold; }.state-charging { display:inline-block; padding:4px 16px; border-radius:4px; background:#F5A623; color:#fff; font-weight:bold; }.state-discharging { display:inline-block; padding:4px 16px; border-radius:4px; background:#E74C3C; color:#fff; font-weight:bold; }input[type=range] { width: 80%; }.btn { display: inline-block; background: #195B6A; color: #fff; padding: 10px 28px;       border: none; border-radius: 4px; font-size: 1em; cursor: pointer; text-decoration: none; margin: 4px; }.btn-on  { background: #17A2FC; }.btn-off { background: #888; }hr { margin: 16px 0; }</style></head><body><h1>LED Power Percentage</h1><p><b>Device:</b> )rawhtml";
+    html += R"rawhtml(<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="5"><link rel="icon" href="data:,"><style>body { font-family: Helvetica; max-width: 480px; margin: 0 auto; padding: 12px; text-align: center; }h1 { font-size: 1.4em; }.state-on  { display: inline-block; padding: 4px 16px; border-radius: 4px; background: #17A2FC; color: #fff; font-weight: bold; }.state-off { display: inline-block; padding: 4px 16px; border-radius: 4px; background: #888;    color: #fff; font-weight: bold; }.state-idle { display:inline-block; padding:4px 16px; border-radius:4px; background:#888; color:#fff; font-weight:bold; }.state-charging { display:inline-block; padding:4px 16px; border-radius:4px; background:#F5A623; color:#fff; font-weight:bold; }.state-discharging { display:inline-block; padding:4px 16px; border-radius:4px; background:#E74C3C; color:#fff; font-weight:bold; }input[type=range] { width: 80%; }.btn { display: inline-block; background: #195B6A; color: #fff; padding: 10px 28px;       border: none; border-radius: 4px; font-size: 1em; cursor: pointer; text-decoration: none; margin: 4px; }.btn-on  { background: #17A2FC; }.btn-off { background: #888; }hr { margin: 16px 0; }</style></head><body><h1>LED Power Percentage</h1><p><b>Device:</b> )rawhtml";
     html += identifier;
     html += R"rawhtml(</p><p><b>Firmware:</b> )rawhtml";
     html += app_version;
@@ -41,6 +41,11 @@ void handleWebRoot() {
     }
     html += R"rawhtml(</p>)rawhtml";
 
+    // Animation status
+    html += R"rawhtml(<p><b>Animation:</b> <span>)rawhtml";
+    html += animModeToStr(animMode);
+    html += R"rawhtml(</span></p>)rawhtml";
+
     html += R"rawhtml(<hr>)rawhtml";
 
     // Slider form — submits automatically when the user releases the slider
@@ -53,6 +58,31 @@ void handleWebRoot() {
     html += R"rawhtml(<p><a class="btn btn-on" href="/set?state=on">Turn ON</a> <a class="btn btn-off" href="/set?state=off">Turn OFF</a></p>)rawhtml";
 
     html += R"rawhtml(<p><a class="btn" href="/set?charging_state=idle">Idle</a> <a class="btn btn-on" style="background:#F5A623" href="/set?charging_state=charging">Charging</a> <a class="btn btn-off" style="background:#E74C3C" href="/set?charging_state=discharging">Discharging</a></p>)rawhtml";
+
+    // Animation dropdown
+    html += R"rawhtml(<p><b>Animation:</b></p>)rawhtml";
+    html += R"rawhtml(<p>)rawhtml";
+    html += R"rawhtml(<select onchange="location.href='/set?animation='+this.value" style="font-size:1em;padding:6px;width:90%;max-width:340px">)rawhtml";
+    html += String(R"rawhtml(<option value="none")rawhtml") + (animMode == ANIM_NONE ? " selected" : "") + ">-- Off --</option>";
+    html += R"rawhtml(<optgroup label="Ambient / Relaxing">)rawhtml";
+    html += String(R"rawhtml(<option value="lava")rawhtml")      + (animMode == ANIM_LAVA      ? " selected" : "") + ">Lava Lamp</option>";
+    html += String(R"rawhtml(<option value="waterfall")rawhtml") + (animMode == ANIM_WATERFALL ? " selected" : "") + ">Waterfall</option>";
+    html += String(R"rawhtml(<option value="gradient")rawhtml")  + (animMode == ANIM_GRADIENT  ? " selected" : "") + ">Breathing Gradient</option>";
+    html += String(R"rawhtml(<option value="breathe")rawhtml")   + (animMode == ANIM_BREATHE   ? " selected" : "") + ">Breathe</option>";
+    html += String(R"rawhtml(<option value="starfield")rawhtml") + (animMode == ANIM_STARFIELD ? " selected" : "") + ">Starfield</option>";
+    html += R"rawhtml(</optgroup>)rawhtml";
+    html += R"rawhtml(<optgroup label="Dynamic / Energetic">)rawhtml";
+    html += String(R"rawhtml(<option value="fire")rawhtml")   + (animMode == ANIM_FIRE   ? " selected" : "") + ">Fire</option>";
+    html += String(R"rawhtml(<option value="pulse")rawhtml")  + (animMode == ANIM_PULSE  ? " selected" : "") + ">Energy Pulse</option>";
+    html += String(R"rawhtml(<option value="meteor")rawhtml") + (animMode == ANIM_METEOR ? " selected" : "") + ">Meteor</option>";
+    html += String(R"rawhtml(<option value="rain")rawhtml")   + (animMode == ANIM_RAIN   ? " selected" : "") + ">Rain</option>";
+    html += R"rawhtml(</optgroup>)rawhtml";
+    html += R"rawhtml(<optgroup label="Colorful">)rawhtml";
+    html += String(R"rawhtml(<option value="rainbow")rawhtml") + (animMode == ANIM_RAINBOW ? " selected" : "") + ">Rainbow</option>";
+    html += String(R"rawhtml(<option value="twinkle")rawhtml") + (animMode == ANIM_TWINKLE ? " selected" : "") + ">Twinkle</option>";
+    html += R"rawhtml(</optgroup>)rawhtml";
+    html += R"rawhtml(</select>)rawhtml";
+    html += R"rawhtml(</p>)rawhtml";
 
     html += R"rawhtml(<hr><p><a href="/config">Configuration</a></p></body></html>)rawhtml";
 
@@ -84,6 +114,14 @@ void handleWebSet() {
             ledState = true;
         }
     }
+    if (webServer.hasArg("animation")) {
+        AnimMode newMode = strToAnimMode(webServer.arg("animation").c_str());
+        setAnimMode(newMode);
+        publishAnimationState();
+        webServer.sendHeader("Location", "/");
+        webServer.send(302, "text/plain", "");
+        return;
+    }
     if (colorOverrideActive) {
         colorOverrideActive = false;
         publishColorState();
@@ -106,7 +144,7 @@ void handleWebConfig() {
     String html;
     html.reserve(2048);
 
-    html += R"rawhtml(<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,"><style>body { font-family: Helvetica; max-width: 480px; margin: 0 auto; padding: 12px; }h1 { font-size: 1.4em; text-align: center; }table { width: 100%; border-collapse: collapse; }td { padding: 4px 4px; vertical-align: middle; }td:first-child { width: 55%; font-weight: bold; }input[type=number], input[type=color] { width: 80px; }input[type=range] { width: 100%; }.btn { display: inline-block; background: #195B6A; color: #fff; padding: 10px 28px;       border: none; border-radius: 4px; font-size: 1em; cursor: pointer; text-decoration: none; }hr { margin: 16px 0; }</style></head><body><h1>Configuration</h1><form method="POST" action="/config"><table>)rawhtml";
+    html += R"rawhtml(<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,"><style>body { font-family: Helvetica; max-width: 480px; margin: 0 auto; padding: 12px; }h1 { font-size: 1.4em; text-align: center; }table { width: 100%; border-collapse: collapse; }td { padding: 4px 4px; vertical-align: middle; }td:first-child { width: 55%; font-weight: bold; }input[type=number], input[type=color] { width: 80px; }input[type=range] { width: 100%; }.btn { display: inline-block; background: #195B6A; color: #fff; padding: 10px 28px;       border: none; border-radius: 4px; font-size: 1em; cursor: pointer; text-decoration: none; }hr { margin: 16px 0; }</style></head><body><h1>Configuration</h1><form method="POST" action="/config"><table>)rawhtml";
 
     // mqtt_enabled
     html += R"rawhtml(<tr><td>MQTT Enabled:</td><td><input type="checkbox" id="mqtt_enabled" name="mqtt_enabled" onchange="if(this.checked)document.getElementById('vrm_enabled').checked=false;")rawhtml";
@@ -433,6 +471,7 @@ void handleApiStateGet() {
     doc["state"]          = ledState ? "on" : "off";
     doc["brightness"]     = ledPercent;
     doc["charging_state"] = csStr;
+    doc["animation"]      = animModeToStr(animMode);
     doc["ip"]             = WiFi.localIP().toString();
     doc["rssi"]           = WiFi.RSSI();
 
@@ -520,11 +559,45 @@ void handleApiColor() {
     colorOverrideG      = g;
     colorOverrideB      = b;
     colorOverrideActive = (r || g || b);
+    // Setting a solid colour cancels any running animation
+    animMode = ANIM_NONE;
+    publishAnimationState();
     updateLEDs();
     publishColorState();
 
     char payload[64];
     snprintf(payload, sizeof(payload), "{\"r\":%d,\"g\":%d,\"b\":%d}", r, g, b);
+    webServer.send(200, "application/json", payload);
+}
+
+// ---------------------------------------------------------------------------
+// handleApiAnimation — POST /api/animation {"animation":"rainbow"} — set decorative mode
+// ---------------------------------------------------------------------------
+
+void handleApiAnimation() {
+    if (!webServer.hasArg("plain") || webServer.arg("plain").length() == 0) {
+        webServer.send(400, "application/json", "{\"error\":\"empty body\"}");
+        return;
+    }
+
+    DynamicJsonDocument doc(128);
+    if (deserializeJson(doc, webServer.arg("plain")) != DeserializationError::Ok) {
+        webServer.send(400, "application/json", "{\"error\":\"invalid JSON\"}");
+        return;
+    }
+
+    const char* animStr = doc["animation"].as<const char*>();
+    if (animStr == nullptr) {
+        webServer.send(400, "application/json", "{\"error\":\"missing animation field\"}");
+        return;
+    }
+
+    AnimMode newMode = strToAnimMode(animStr);
+    setAnimMode(newMode);
+    publishAnimationState();
+
+    char payload[64];
+    snprintf(payload, sizeof(payload), "{\"animation\":\"%s\"}", animModeToStr(newMode));
     webServer.send(200, "application/json", payload);
 }
 

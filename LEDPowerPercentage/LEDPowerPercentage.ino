@@ -32,6 +32,10 @@
 // --- Charging state ---
 enum ChargingState { STATE_IDLE, STATE_CHARGING, STATE_DISCHARGING };
 
+// --- Decorative animation mode ---
+enum AnimMode { ANIM_NONE = 0, ANIM_RAINBOW, ANIM_FIRE, ANIM_METEOR, ANIM_TWINKLE, ANIM_BREATHE,
+                ANIM_LAVA, ANIM_WATERFALL, ANIM_GRADIENT, ANIM_PULSE, ANIM_RAIN, ANIM_STARFIELD };
+
 // --- Device identifier (built from MAC address in setup) ---
 char identifier[24];
 
@@ -45,6 +49,9 @@ char MQTT_TOPIC_COLOR_STATE[128];
 char MQTT_TOPIC_AUTOCONF_LIGHT[128];
 char MQTT_TOPIC_AUTOCONF_CHARGE[128];
 char MQTT_TOPIC_AUTOCONF_COLOR[128];
+char MQTT_TOPIC_ANIMATION_SET[128];
+char MQTT_TOPIC_ANIMATION_STATE[128];
+char MQTT_TOPIC_AUTOCONF_ANIMATION[128];
 
 // --- Hardware objects ---
 Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_RBG + NEO_KHZ800);
@@ -67,6 +74,9 @@ bool    colorOverrideActive = false;
 uint8_t colorOverrideR      = 0;
 uint8_t colorOverrideG      = 0;
 uint8_t colorOverrideB      = 0;
+
+// --- Active decorative animation ---
+AnimMode animMode = ANIM_NONE;
 
 // ============================================================
 // setup
@@ -117,6 +127,10 @@ void setup() {
     snprintf(MQTT_TOPIC_COLOR_STATE,     sizeof(MQTT_TOPIC_COLOR_STATE)     - 1, "%s/%s/color/state",    FIRMWARE_PREFIX, identifier);
     snprintf(MQTT_TOPIC_AUTOCONF_COLOR,  sizeof(MQTT_TOPIC_AUTOCONF_COLOR)  - 1, "%s/light/%s_%s_color/config",
              Config::mqtt_discovery_prefix, FIRMWARE_PREFIX, identifier);
+    snprintf(MQTT_TOPIC_ANIMATION_SET,   sizeof(MQTT_TOPIC_ANIMATION_SET)   - 1, "%s/%s/animation/set",   FIRMWARE_PREFIX, identifier);
+    snprintf(MQTT_TOPIC_ANIMATION_STATE, sizeof(MQTT_TOPIC_ANIMATION_STATE) - 1, "%s/%s/animation/state", FIRMWARE_PREFIX, identifier);
+    snprintf(MQTT_TOPIC_AUTOCONF_ANIMATION, sizeof(MQTT_TOPIC_AUTOCONF_ANIMATION) - 1, "%s/select/%s_%s_animation/config",
+             Config::mqtt_discovery_prefix, FIRMWARE_PREFIX, identifier);
 
     Serial.printf("MQTT availability: %s\n", MQTT_TOPIC_AVAILABILITY);
 
@@ -147,6 +161,7 @@ void loop() {
     ArduinoOTA.handle();
     mqttClient.loop();
     webServer.handleClient();
+    handleAnimation();
     handleStateAnimation();
     vrmPoll();
 

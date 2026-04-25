@@ -1,5 +1,12 @@
 // MQTTAutoDiscovery.ino — MQTT state publishing and Home Assistant auto-discovery
 
+void publishAnimationState() {
+    if (!Config::mqtt_enabled) return;
+    mqttClient.publish(MQTT_TOPIC_ANIMATION_STATE, animModeToStr(animMode), false);
+}
+
+// ---------------------------------------------------------------------------
+
 void publishState() {
     if (!Config::mqtt_enabled) return;
     DynamicJsonDocument doc(256);
@@ -36,8 +43,8 @@ void publishColorState() {
 
 void publishAutoConfig() {
     if (!Config::mqtt_enabled) return;
-    char mqttPayload[2048];
-    DynamicJsonDocument autoconfPayload(2048);
+    char mqttPayload[3072];
+    DynamicJsonDocument autoconfPayload(3072);
     DynamicJsonDocument device(256);
     StaticJsonDocument<64> identifiersDoc;
     JsonArray identifiers = identifiersDoc.to<JsonArray>();
@@ -98,6 +105,32 @@ void publishAutoConfig() {
 
     serializeJson(autoconfPayload, mqttPayload);
     mqttClient.publish(MQTT_TOPIC_AUTOCONF_COLOR, mqttPayload, true);
+
+    autoconfPayload.clear();
+
+    // --- Payload 4: Animation select entity ---
+    autoconfPayload["name"]               = String(identifier) + " Animation";
+    autoconfPayload["unique_id"]          = String(identifier) + "_animation";
+    autoconfPayload["device"]             = device.as<JsonObject>();
+    autoconfPayload["availability_topic"] = MQTT_TOPIC_AVAILABILITY;
+    autoconfPayload["state_topic"]        = MQTT_TOPIC_ANIMATION_STATE;
+    autoconfPayload["command_topic"]      = MQTT_TOPIC_ANIMATION_SET;
+    autoconfPayload["options"][0]          = "none";
+    autoconfPayload["options"][1]          = "rainbow";
+    autoconfPayload["options"][2]          = "fire";
+    autoconfPayload["options"][3]          = "meteor";
+    autoconfPayload["options"][4]          = "twinkle";
+    autoconfPayload["options"][5]          = "breathe";
+    autoconfPayload["options"][6]          = "lava";
+    autoconfPayload["options"][7]          = "waterfall";
+    autoconfPayload["options"][8]          = "gradient";
+    autoconfPayload["options"][9]          = "pulse";
+    autoconfPayload["options"][10]         = "rain";
+    autoconfPayload["options"][11]         = "starfield";
+    autoconfPayload["icon"]               = "mdi:animation-play";
+
+    serializeJson(autoconfPayload, mqttPayload);
+    mqttClient.publish(MQTT_TOPIC_AUTOCONF_ANIMATION, mqttPayload, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -148,8 +181,18 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
             colorOverrideG      = (uint8_t)constrain((int)doc["color"]["g"], 0, 255);
             colorOverrideB      = (uint8_t)constrain((int)doc["color"]["b"], 0, 255);
             colorOverrideActive = true;
+            // Setting a solid colour cancels any running animation
+            animMode = ANIM_NONE;
+            publishAnimationState();
         }
         updateLEDs();
         publishColorState();
+    } else if (strcmp(topic, MQTT_TOPIC_ANIMATION_SET) == 0) {
+        char msg[16] = {0};
+        unsigned int copyLen = min((unsigned int)15, length);
+        memcpy(msg, payload, copyLen);
+        msg[copyLen] = '\0';
+        setAnimMode(strToAnimMode(msg));
+        publishAnimationState();
     }
 }
