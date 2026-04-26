@@ -44,10 +44,12 @@ The sketch is split across several `.ino` files that the Arduino IDE concatenate
 | `WebServer.ino` | Web UI handlers (`/`, `/set`, `/config`, `/reset`) and REST API (`/api/state`, `/api/brightness`, `/api/color`) |
 | `WiFiMqttSetup.ino` | WiFi captive portal (`setupWifi`), OTA (`setupOTA`), MQTT reconnect (`mqttReconnect`) |
 | `VRMClient.ino` | Victron VRM HTTPS polling — resolves user ID → site ID → battery instance, then polls `BatterySummary` on a configurable interval |
+| `ModbusClient.ino` | Victron GX Modbus TCP polling — reads SOC (reg 266) and current (reg 261) from `com.victronenergy.battery` at the configured unit ID |
 
 ## Key Design Decisions
 
-- **MQTT and VRM are mutually exclusive.** Only one input source can be active at a time; the config page enforces this.
+- **Victron data source is a three-way enum** (`VICTRON_NONE` / `VICTRON_VRM` / `VICTRON_MODBUS`) stored in `Config::victron_source`. VRM and Modbus are mutually exclusive (they both provide SOC/current); MQTT can run alongside either. The config page shows a radio button to select the source and uses JS `setDS()` to show/hide the relevant fields.
+- **MQTT brightness commands are ignored when a Victron source is active** — only on/off state commands are processed so that VRM or Modbus always owns the percentage value.
 - **Device identifier** is built from the MAC address in `setup()` and used as the MQTT client ID, OTA hostname/password, and WiFi AP name: `LEDPOWER-AABBCCDDEEFF`.
 - **LED strip is reconfigured at runtime** from `Config` values — pin, pixel count, colour order, and kHz are applied via `updateLength()`, `setPin()`, and `updateType()` rather than compile-time constants.
 - **`colorOverrideActive`** is a separate display mode (solid colour fill) triggered by the MQTT color entity or `POST /api/color`. It takes priority over the normal percentage display in `updateLEDs()`.

@@ -3,6 +3,8 @@
 #include <ArduinoJson.h>
 #include <FS.h>
 
+enum VictronSource { VICTRON_NONE = 0, VICTRON_VRM = 1, VICTRON_MODBUS = 2 };
+
 namespace Config {
     char mqtt_server[80]    = "example.tld";
     char mqtt_username[24]  = "";
@@ -12,27 +14,28 @@ namespace Config {
     bool mqtt_secure            = false;
     int  mqtt_port              = 1883;
 
-    bool vrm_enabled          = false;
-    char vrm_api_token[128]   = "";   // VRM personal access token (no 2FA issues)
-    int  vrm_site_id          = 0;    // 0 = auto-select first installation
-    int   vrm_battery_instance    = -1;  // -1 = auto (first Battery Monitor found)
-    float vrm_discharge_threshold = -0.5f; // A; current below this = discharging (negative value)
-    float vrm_charge_threshold    =  0.5f; // A; current above this = charging
-    int   vrm_interval            = 60;  // seconds between polls
+    VictronSource victron_source    = VICTRON_VRM;
+    char vrm_api_token[128]         = "";
+    int  vrm_site_id                = 0;    // 0 = auto-select first installation
+    char modbus_host[64]            = "";
+    int   vrm_battery_instance      = -1;   // VRM: auto; Modbus: unit ID (0 = first battery)
+    float vrm_discharge_threshold   = -0.5f;
+    float vrm_charge_threshold      =  0.5f;
+    int   vrm_interval              = 60;   // seconds between polls (VRM and Modbus)
 
     int  threshold_1        = 20;
     int  threshold_2        = 60;
 
     int  fade_pixels        = 3;
-    int  num_pixels         = 38;   // strip length (matches NUM_PIXELS compile-time default)
-    int  led_pin            = 4;    // WS2812B data pin (matches PIN_WS2812B compile-time default)
+    int  num_pixels         = 38;
+    int  led_pin            = 4;
     uint8_t pixel_color_order = 9;  // NEO_RBG=9, NEO_GRB=82, NEO_RGB=6, NEO_BRG=88, NEO_BGR=54, NEO_GBR=98
-    int  pixel_khz          = 800;  // 800 or 400
+    int  pixel_khz          = 800;
     uint8_t middle_r        = 0;
     uint8_t middle_g        = 0;
     uint8_t middle_b        = 255;
     bool charge_anim          = true;
-    int  charge_anim_interval = 10;   // seconds between sweeps (2–60)
+    int  charge_anim_interval = 10;
     uint8_t base_brightness   = 128;
 
     void save() {
@@ -45,9 +48,10 @@ namespace Config {
         json["mqtt_secure"]    = mqtt_secure;
         json["mqtt_port"]      = mqtt_port;
 
-        json["vrm_enabled"]   = vrm_enabled;
-        json["vrm_api_token"] = vrm_api_token;
-        json["vrm_site_id"]          = vrm_site_id;
+        json["victron_source"]          = (int)victron_source;
+        json["vrm_api_token"]           = vrm_api_token;
+        json["vrm_site_id"]             = vrm_site_id;
+        json["modbus_host"]             = modbus_host;
         json["vrm_battery_instance"]    = vrm_battery_instance;
         json["vrm_discharge_threshold"] = vrm_discharge_threshold;
         json["vrm_charge_threshold"]    = vrm_charge_threshold;
@@ -78,7 +82,6 @@ namespace Config {
     }
 
     void load() {
-        // SPIFFS is mounted by setup() before load() is called
         if (SPIFFS.exists("/config.json")) {
             File configFile = SPIFFS.open("/config.json", "r");
 
@@ -99,13 +102,28 @@ namespace Config {
                     mqtt_secure     = json["mqtt_secure"]      | false;
                     mqtt_port       = json["mqtt_port"]        | 1883;
 
-                    vrm_enabled  = json["vrm_enabled"]  | false;
+                    // Migrate from old vrm_enabled bool if present
+                    if (json.containsKey("victron_source")) {
+                        victron_source = (VictronSource)(json["victron_source"] | (int)VICTRON_VRM);
+                    } else if (json["vrm_enabled"] | false) {
+                        victron_source = VICTRON_VRM;
+                    } else if (json["modbus_enabled"] | false) {
+                        victron_source = VICTRON_MODBUS;
+                    } else {
+                        victron_source = VICTRON_NONE;
+                    }
+
                     strlcpy(vrm_api_token, json["vrm_api_token"] | "", sizeof(vrm_api_token));
-                    vrm_site_id          = json["vrm_site_id"]          | 0;
+                    vrm_site_id             = json["vrm_site_id"]             | 0;
+                    strlcpy(modbus_host, json["modbus_host"] | "", sizeof(modbus_host));
                     vrm_battery_instance    = json["vrm_battery_instance"]    | -1;
                     vrm_discharge_threshold = json["vrm_discharge_threshold"] | -0.5f;
                     vrm_charge_threshold    = json["vrm_charge_threshold"]    |  0.5f;
-                    vrm_interval            = json["vrm_interval"]            | 60;
+                    vrm_interval            = constrain(json["vrm_interval"] | 60, 10, 3600);
+
+                    // Clear source if required credential is missing
+                    if (victron_source == VICTRON_VRM    && vrm_api_token[0] == '\0') victron_source = VICTRON_NONE;
+                    if (victron_source == VICTRON_MODBUS && modbus_host[0]   == '\0') victron_source = VICTRON_NONE;
 
                     threshold_1     = json["threshold_1"]     | 20;
                     threshold_2     = json["threshold_2"]     | 60;

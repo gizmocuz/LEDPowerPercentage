@@ -126,7 +126,7 @@ void handleWebConfig() {
 
     webServer.sendContent(R"html(<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,"><style>body{font-family:Helvetica;max-width:480px;margin:0 auto;padding:12px}h1{font-size:1.4em;text-align:center}table{width:100%;border-collapse:collapse}td{padding:4px 4px;vertical-align:middle}td:first-child{width:55%;font-weight:bold}input[type=number],input[type=color]{width:80px}input[type=range]{width:100%}.btn{display:inline-block;background:#195B6A;color:#fff;padding:10px 28px;border:none;border-radius:4px;font-size:1em;cursor:pointer;text-decoration:none}hr{margin:16px 0}</style></head><body><h1>Configuration</h1><form method="POST" action="/config"><table>)html");
 
-    snprintf(buf, sizeof(buf), R"html(<tr><td>MQTT Enabled:</td><td><input type="checkbox" id="mqtt_enabled" name="mqtt_enabled" onchange="if(this.checked)document.getElementById('vrm_enabled').checked=false;"%s></td></tr>)html",
+    snprintf(buf, sizeof(buf), R"html(<tr><td>MQTT Enabled:</td><td><input type="checkbox" id="mqtt_enabled" name="mqtt_enabled"%s></td></tr>)html",
              Config::mqtt_enabled ? " checked" : "");
     webServer.sendContent(buf);
 
@@ -156,33 +156,65 @@ void handleWebConfig() {
 
     webServer.sendContent(R"html(<tr><td colspan="2"><hr style="margin:8px 0"></td></tr>)html");
 
-    snprintf(buf, sizeof(buf), R"html(<tr><td>Victron VRM Enabled:</td><td><input type="checkbox" id="vrm_enabled" name="vrm_enabled" onchange="if(this.checked)document.getElementById('mqtt_enabled').checked=false;"%s></td></tr>)html",
-             Config::vrm_enabled ? " checked" : "");
-    webServer.sendContent(buf);
+    // --- Victron data source selector ---
+    {
+        const char* noneChk  = (Config::victron_source == VICTRON_NONE)   ? " checked" : "";
+        const char* vrmChk   = (Config::victron_source == VICTRON_VRM)    ? " checked" : "";
+        const char* modbChk  = (Config::victron_source == VICTRON_MODBUS) ? " checked" : "";
+        snprintf(buf, sizeof(buf),
+            R"html(<tr><td>Victron data source:</td><td>
+<label><input type="radio" name="data_source" value="none" onchange="setDS('none')"%s> None</label><br>
+<label><input type="radio" name="data_source" value="vrm" onchange="setDS('vrm')"%s> VRM (cloud API)</label><br>
+<label><input type="radio" name="data_source" value="modbus" onchange="setDS('modbus')"%s> Modbus TCP (local)</label>
+</td></tr>)html",
+            noneChk, vrmChk, modbChk);
+        webServer.sendContent(buf);
+    }
 
-    snprintf(buf, sizeof(buf), R"html(<tr><td>VRM API Token:</td><td><input type="password" name="vrm_api_token" value="%s" maxlength="127" style="width:200px" autocomplete="off"><br><small style="color:#888">VRM Portal -> Preferences -> Integrations -> Access tokens</small></td></tr>)html",
+    // VRM-specific fields
+    {
+        const char* vis = (Config::victron_source == VICTRON_VRM) ? "" : "display:none";
+        snprintf(buf, sizeof(buf), R"html(<tbody id="ds_vrm" style="%s">)html", vis);
+        webServer.sendContent(buf);
+    }
+    snprintf(buf, sizeof(buf), R"html(<tr><td>VRM API Token:</td><td><input type="password" name="vrm_api_token" value="%s" maxlength="127" style="width:200px" autocomplete="off"><br><small style="color:#888">VRM Portal → Preferences → Integrations → Access tokens</small></td></tr>)html",
              Config::vrm_api_token);
     webServer.sendContent(buf);
-
     snprintf(buf, sizeof(buf), R"html(<tr><td>VRM Site ID:</td><td><input type="number" name="vrm_site_id" value="%d" min="0" style="width:100px"><br><small style="color:#888">0 = auto (first installation)</small></td></tr>)html",
              Config::vrm_site_id);
     webServer.sendContent(buf);
+    webServer.sendContent(R"html(</tbody>)html");
 
-    snprintf(buf, sizeof(buf), R"html(<tr><td>VRM Battery Instance:</td><td><input type="number" name="vrm_battery_instance" value="%d" min="-1" style="width:100px"><br><small style="color:#888">-1 = auto (first Battery Monitor)</small></td></tr>)html",
+    // Modbus-specific fields
+    {
+        const char* vis = (Config::victron_source == VICTRON_MODBUS) ? "" : "display:none";
+        snprintf(buf, sizeof(buf), R"html(<tbody id="ds_modbus" style="%s">)html", vis);
+        webServer.sendContent(buf);
+    }
+    snprintf(buf, sizeof(buf), R"html(<tr><td>Modbus Host (GX IP):</td><td><input type="text" name="modbus_host" value="%s" maxlength="63" style="width:200px"><br><small style="color:#888">IP address of the Victron GX device</small></td></tr>)html",
+             Config::modbus_host);
+    webServer.sendContent(buf);
+    webServer.sendContent(R"html(</tbody>)html");
+
+    // Shared fields (battery instance, thresholds, interval) — shown for VRM and Modbus
+    {
+        const char* vis = (Config::victron_source != VICTRON_NONE) ? "" : "display:none";
+        snprintf(buf, sizeof(buf), R"html(<tbody id="ds_shared" style="%s">)html", vis);
+        webServer.sendContent(buf);
+    }
+    snprintf(buf, sizeof(buf), R"html(<tr><td>Battery Instance:</td><td><input type="number" name="vrm_battery_instance" value="%d" min="-1" style="width:100px"><br><small style="color:#888">VRM: -1 = auto. Modbus: unit ID (0 = first battery)</small></td></tr>)html",
              Config::vrm_battery_instance);
     webServer.sendContent(buf);
-
-    snprintf(buf, sizeof(buf), R"html(<tr><td>VRM Charge threshold (A):</td><td><input type="number" name="vrm_charge_threshold" value="%.1f" step="0.1" style="width:100px"><br><small style="color:#888">Current above this = charging (default 0.5)</small></td></tr>)html",
+    snprintf(buf, sizeof(buf), R"html(<tr><td>Charge threshold (A):</td><td><input type="number" name="vrm_charge_threshold" value="%.1f" step="0.1" style="width:100px"><br><small style="color:#888">Current above this = charging (default 0.5)</small></td></tr>)html",
              Config::vrm_charge_threshold);
     webServer.sendContent(buf);
-
-    snprintf(buf, sizeof(buf), R"html(<tr><td>VRM Discharge threshold (A):</td><td><input type="number" name="vrm_discharge_threshold" value="%.1f" step="0.1" style="width:100px"><br><small style="color:#888">Current below this = discharging (default -0.5)</small></td></tr>)html",
+    snprintf(buf, sizeof(buf), R"html(<tr><td>Discharge threshold (A):</td><td><input type="number" name="vrm_discharge_threshold" value="%.1f" step="0.1" style="width:100px"><br><small style="color:#888">Current below this = discharging (default -0.5)</small></td></tr>)html",
              Config::vrm_discharge_threshold);
     webServer.sendContent(buf);
-
-    snprintf(buf, sizeof(buf), R"html(<tr><td>VRM Poll interval (s):</td><td><input type="number" name="vrm_interval" value="%d" min="10" max="3600" style="width:80px"></td></tr>)html",
+    snprintf(buf, sizeof(buf), R"html(<tr><td>Poll interval (s):</td><td><input type="number" name="vrm_interval" value="%d" min="10" max="3600" style="width:80px"></td></tr>)html",
              Config::vrm_interval);
     webServer.sendContent(buf);
+    webServer.sendContent(R"html(</tbody>)html");
 
     webServer.sendContent(R"html(<tr><td colspan="2"><hr style="margin:8px 0"></td></tr>)html");
 
@@ -251,7 +283,7 @@ void handleWebConfig() {
              Config::base_brightness, Config::base_brightness);
     webServer.sendContent(buf);
 
-    webServer.sendContent(R"html(</table><p style="font-size:0.85em;color:#888"><br><div style="text-align:center"><button class="btn" type="submit">Save</button></div></form><hr><p style="text-align:center"><a href="/">Back to status</a> &nbsp;|&nbsp; <a href="/reset" style="color:#E74C3C" onclick="return confirm('Reset WiFi settings and reboot into AP mode?')">Reset WiFi</a></p></body></html>)html");
+    webServer.sendContent(R"html(</table><p style="font-size:0.85em;color:#888"><br><div style="text-align:center"><button class="btn" type="submit">Save</button></div></form><hr><p style="text-align:center"><a href="/">Back to status</a> &nbsp;|&nbsp; <a href="/reset" style="color:#E74C3C" onclick="return confirm('Reset WiFi settings and reboot into AP mode?')">Reset WiFi</a></p><script>function setDS(v){document.getElementById('ds_vrm').style.display=v==='vrm'?'':'none';document.getElementById('ds_modbus').style.display=v==='modbus'?'':'none';document.getElementById('ds_shared').style.display=v!=='none'?'':'none';}</script></body></html>)html");
 }
 
 // ---------------------------------------------------------------------------
@@ -259,8 +291,8 @@ void handleWebConfig() {
 // ---------------------------------------------------------------------------
 
 void handleWebConfigSave() {
-    bool wasMqttEnabled = Config::mqtt_enabled;
-    bool wasVrmEnabled  = Config::vrm_enabled;
+    bool wasMqttEnabled          = Config::mqtt_enabled;
+    VictronSource wasVictronSource = Config::victron_source;
 
     if (webServer.hasArg("threshold_1") && webServer.hasArg("threshold_2")) {
         int t1 = webServer.arg("threshold_1").toInt();
@@ -283,11 +315,18 @@ void handleWebConfigSave() {
         }
     }
 
-    // Checkbox: present means checked, absent means unchecked; MQTT and VRM are mutually exclusive
+    // Checkboxes: present means checked, absent means unchecked
     Config::charge_anim  = webServer.hasArg("charge_anim");
     Config::mqtt_enabled = webServer.hasArg("mqtt_enabled");
     Config::mqtt_secure  = webServer.hasArg("mqtt_secure");
-    Config::vrm_enabled  = webServer.hasArg("vrm_enabled") && !Config::mqtt_enabled;
+
+    // Victron data source (radio button)
+    {
+        String ds = webServer.arg("data_source");
+        if      (ds == "vrm")    Config::victron_source = VICTRON_VRM;
+        else if (ds == "modbus") Config::victron_source = VICTRON_MODBUS;
+        else                     Config::victron_source = VICTRON_NONE;
+    }
 
     if (webServer.hasArg("mqtt_server")) {
         String s = webServer.arg("mqtt_server"); s.trim();
@@ -306,14 +345,22 @@ void handleWebConfigSave() {
         String t = webServer.arg("vrm_api_token"); t.trim();
         strlcpy(Config::vrm_api_token, t.c_str(), sizeof(Config::vrm_api_token));
     }
-    if (Config::vrm_enabled && Config::vrm_api_token[0] == '\0') {
-        Config::vrm_enabled = false;
+    if (webServer.hasArg("modbus_host")) {
+        String h = webServer.arg("modbus_host"); h.trim();
+        strlcpy(Config::modbus_host, h.c_str(), sizeof(Config::modbus_host));
+    }
+    if (Config::victron_source == VICTRON_VRM && Config::vrm_api_token[0] == '\0') {
+        Config::victron_source = VICTRON_NONE;
         Serial.println("VRM: disabled — API token is required");
+    }
+    if (Config::victron_source == VICTRON_MODBUS && Config::modbus_host[0] == '\0') {
+        Config::victron_source = VICTRON_NONE;
+        Serial.println("Modbus: disabled — host IP is required");
     }
     if (webServer.hasArg("vrm_site_id"))
         Config::vrm_site_id = max(0, (int)webServer.arg("vrm_site_id").toInt());
     if (webServer.hasArg("vrm_battery_instance"))
-        Config::vrm_battery_instance = max(-1, (int)webServer.arg("vrm_battery_instance").toInt());
+        Config::vrm_battery_instance = constrain((int)webServer.arg("vrm_battery_instance").toInt(), -1, 255);
     if (webServer.hasArg("vrm_charge_threshold")) {
         String v = webServer.arg("vrm_charge_threshold"); v.trim(); v.replace(',', '.');
         if (v.length() > 0 && v.length() <= 8) Config::vrm_charge_threshold = v.toFloat();
@@ -324,7 +371,8 @@ void handleWebConfigSave() {
     }
     if (webServer.hasArg("vrm_interval"))
         Config::vrm_interval = constrain(webServer.arg("vrm_interval").toInt(), 10, 3600);
-    vrmReset(); // force re-login with new credentials
+    vrmReset();    // force re-login on next poll
+    modbusReset(); // force immediate reconnect on next poll
 
     if (webServer.hasArg("charge_anim_interval"))
         Config::charge_anim_interval = constrain(webServer.arg("charge_anim_interval").toInt(), 2, 60);
@@ -370,15 +418,14 @@ void handleWebConfigSave() {
         ws2812b.begin(); // re-init RMT only when pin actually changes
     }
 
-    // Handle MQTT / VRM state transitions
-    bool mqttChanged = (Config::mqtt_enabled != wasMqttEnabled);
-    bool vrmChanged  = (Config::vrm_enabled  != wasVrmEnabled);
+    // Handle MQTT / Victron state transitions
+    bool mqttChanged    = (Config::mqtt_enabled   != wasMqttEnabled);
+    bool victronChanged = (Config::victron_source != wasVictronSource);
 
-    if (mqttChanged || vrmChanged) {
-        // Stop VRM whenever it is now disabled or MQTT takes over
-        if (!Config::vrm_enabled) vrmReset();
+    if (mqttChanged || victronChanged) {
+        if (wasVictronSource == VICTRON_VRM    && Config::victron_source != VICTRON_VRM)    vrmReset();
+        if (wasVictronSource == VICTRON_MODBUS && Config::victron_source != VICTRON_MODBUS) modbusReset();
 
-        // Disconnect MQTT whenever it is now disabled or VRM takes over
         if (!Config::mqtt_enabled && mqttClient.connected()) {
             mqttClient.publish(MQTT_TOPIC_AVAILABILITY, AVAILABILITY_OFFLINE, false);
             mqttClient.disconnect();

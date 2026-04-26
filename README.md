@@ -54,9 +54,45 @@ A configurable fade gradient blends between zones.
 
 ---
 
+## Building & Uploading
+
+**IDE:** Arduino IDE with the ESP32 Arduino core installed.
+
+**Board settings (Tools menu):**
+
+| Setting | Value |
+|---------|-------|
+| Board | `ESP32C3 Dev Module` |
+| Partition Scheme | **Minimal SPIFFS (1.9 MB APP with OTA / 128 KB SPIFFS)** |
+| Upload Speed | 921600 |
+| USB CDC On Boot | **Enabled** — required for Serial Monitor output |
+| Serial monitor | 115200 baud |
+
+> The default 1.25 MB partition is too small because `WiFiClientSecure` (used for VRM) adds ~400 KB. Select the **Minimal SPIFFS** scheme to get a 1.9 MB app partition.
+
+**Required libraries** — install all via **Sketch → Include Library → Manage Libraries**:
+
+| Library | Notes |
+|---------|-------|
+| Adafruit NeoPixel | LED strip control |
+| ArduinoJson | JSON serialisation |
+| ArduinoOTA | OTA updates |
+| PubSubClient | MQTT client |
+| WiFiManager (tzapu) | Captive portal |
+| WebServer | Built-in ESP32 library |
+| SPIFFS | Built-in ESP32 library |
+
+> Modbus TCP uses a raw `WiFiClient` socket — no extra library needed.
+
+**Upload methods:**
+- **USB** — first flash; use the normal upload button in Arduino IDE
+- **OTA** — after first flash; device appears under **Tools → Port → Network ports** using hostname `LEDPOWER-AABBCCDDEEFF` (password is the same device ID)
+
+---
+
 ## First Boot — WiFi Setup
 
-On first boot (or after a WiFi reset) the device opens a captive portal access point named after its device ID (e.g. `LEDPOWER-AABBCCDDEEFF`). Connect to it with any phone or computer and fill in:
+On first boot (or after a WiFi reset) the device opens a captive portal access point named after its device ID (e.g. `LEDPOWER-AABBCCDDEEFF`). Connect to it with any phone or computer — the captive portal should open automatically; if it does not, browse to **http://192.168.4.1** manually. Fill in:
 
 - WiFi SSID / password (selected from a scan list)
 
@@ -96,20 +132,21 @@ The status values update every 5 seconds via background fetch without reloading 
 
 | Setting | Description |
 |---------|-------------|
-| MQTT Enabled | Enable MQTT (mutually exclusive with Victron VRM) |
+| MQTT Enabled | Enable MQTT — can run alongside any Victron data source |
 | MQTT Server | Broker hostname or IP address |
 | MQTT Port | Broker port (default 1883; use 8883 for TLS) |
 | MQTT Username | Leave blank if not required |
 | MQTT Password | Leave blank if not required |
 | MQTT Secure (TLS) | Enable TLS encryption (certificate errors are ignored) |
 | MQTT Discovery Prefix | Home Assistant / Domoticz discovery prefix (default `homeassistant`) |
-| Victron VRM Enabled | Enable Victron VRM polling (mutually exclusive with MQTT) |
-| VRM API Token | Personal access token from VRM Portal → Preferences → Integrations → Access tokens |
-| VRM Site ID | 0 = auto-select first installation |
-| VRM Battery Instance | -1 = auto-select first Battery Monitor |
-| VRM Charge threshold (A) | Current above this = Charging (default 0.5 A) |
-| VRM Discharge threshold (A) | Current below this = Discharging (default −0.5 A); set e.g. to −3 to treat a small discharge current as Idle |
-| VRM Poll interval (s) | Seconds between polls (default 60) |
+| Victron data source | **None** / **VRM (cloud API)** / **Modbus TCP (local)** — radio button |
+| VRM API Token | *(VRM only)* Personal access token from VRM Portal → Preferences → Integrations → Access tokens |
+| VRM Site ID | *(VRM only)* 0 = auto-select first installation |
+| Modbus Host (GX IP) | *(Modbus only)* IP address of the Victron GX device |
+| Battery Instance | VRM: -1 = auto. Modbus: unit ID (0 = first battery) |
+| Charge threshold (A) | Current above this = Charging (default 0.5 A) |
+| Discharge threshold (A) | Current below this = Discharging (default −0.5 A) |
+| Poll interval (s) | Seconds between polls, shared by VRM and Modbus (default 60) |
 | Low threshold (%) | Upper edge of the red zone |
 | High threshold (%) | Lower edge of the green zone |
 | LED pixel count | Number of pixels on the strip (1–500) |
@@ -494,6 +531,33 @@ The firmware can poll the [Victron VRM Portal](https://vrm.victronenergy.com) fo
 | Current between both thresholds | Charging state → **Idle** |
 
 Serial log messages are prefixed with `[VRM]`.
+
+---
+
+## Modbus TCP Integration
+
+The firmware can read battery state directly from a **Victron GX device** (Cerbo GX, Venus GX, CCGX, …) over Modbus TCP on the local network — no internet or VRM account required.
+
+### Setup
+
+1. On the GX device, go to **Settings → Services → Modbus TCP** and enable it.
+2. Note the GX device's IP address (assign a static IP via your router's DHCP reservation).
+3. Open the device configuration page, select **Modbus TCP (local)** as the Victron data source, enter the GX IP in **Modbus Host**, and press **Save**.
+
+### Registers used
+
+All reads target `com.victronenergy.battery` (holding registers):
+
+| Register | Description | Type | Scale | Unit |
+|----------|-------------|------|-------|------|
+| 266 | State of charge | uint16 | ÷10 | % |
+| 261 | Current | int16 | ÷10 | A |
+
+The **unit ID** defaults to `0` (first battery monitor). Set **Battery Instance** to the device instance number if you have multiple battery monitors.
+
+Charging state is derived from current using the shared charge/discharge thresholds (same as VRM).
+
+Serial log messages are prefixed with `[Modbus]`.
 
 ---
 

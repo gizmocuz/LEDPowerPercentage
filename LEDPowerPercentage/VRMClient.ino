@@ -164,7 +164,7 @@ bool vrmFetchBatteryInstance() {
 // vrmPoll — called from loop(); fetches BatterySummary and updates LED state
 // ---------------------------------------------------------------------------
 void vrmPoll() {
-    if (!Config::vrm_enabled) return;
+    if (Config::victron_source != VICTRON_VRM) return;
     if (WiFi.status() != WL_CONNECTED) return;
     if (Config::vrm_api_token[0] == '\0') return;
 

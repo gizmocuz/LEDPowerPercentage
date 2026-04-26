@@ -25,7 +25,7 @@
 
 // --- Firmware identity ---
 #define FIRMWARE_PREFIX      "esp32-ledpower"
-#define app_version          "2026.04.24 rev 1.0"
+#define app_version          "2026.04.26 rev 1.2"
 #define AVAILABILITY_ONLINE  "online"
 #define AVAILABILITY_OFFLINE "offline"
 
@@ -165,6 +165,7 @@ void loop() {
     handleAnimation();
     handleStateAnimation();
     vrmPoll();
+    modbusPoll();
 
     const uint32_t now = millis();
     if (Config::mqtt_enabled && !mqttClient.connected() && now - lastMqttConnectionAttempt >= 60000) {

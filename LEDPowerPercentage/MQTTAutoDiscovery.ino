@@ -149,7 +149,7 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
                 ledState = strcmp(stateStr, "ON") == 0;
             }
         }
-        if (doc.containsKey("brightness")) {
+        if (doc.containsKey("brightness") && Config::victron_source == VICTRON_NONE) {
             ledPercent = constrain((int)doc["brightness"], 0, 100);
             ledState   = (ledPercent > 0);
         }
